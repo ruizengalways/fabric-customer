@@ -7,27 +7,35 @@ Last updated: 2026-08-28
 - Phase 0 — canonical architecture: **COMPLETE**.
 - Framework Phase 1 foundation: **SATISFIED**.
 - Customer Phase 2 CRM Customer vertical slice: **COMPLETE**.
-- Phase 3 enterprise delivery spine participation: **IMPLEMENTED LOCALLY; REMOTE GITHUB CI VALIDATION PENDING**.
+- Phase 3 enterprise delivery spine participation: **IMPLEMENTED ON FEATURE BRANCH; WAITING FOR IMMUTABLE FRAMEWORK 0.3.0 RELEASE**.
 
 ## Last completed step
 
 Extended the Customer reference domain to consume the Phase 3 framework delivery contract:
 
-- exact framework dependency advanced to `fabric-data-framework==0.3.0`;
+- exact framework dependency prepared as `fabric-data-framework==0.3.0`;
 - dependency-free PR metadata validator added so basic Customer CI does not need private-framework credentials;
 - source metadata validation rejects physical Fabric IDs in domain dataset definitions;
 - DEV/UAT/PROD environment binding profiles added separately from semantic metadata;
 - GitHub Actions Customer CI added;
 - optional exact-framework integration job added for private cross-repository validation;
 - tag-triggered Customer release workflow added;
-- Customer release workflow consumes the exact released framework `0.3.0` wheel, runs tests, builds the Customer wheel and generates a release manifest;
+- Customer release workflow is designed to consume the exact released framework `0.3.0` wheel, run tests, build the Customer wheel and generate a release manifest;
 - deployment-plan tests prove the same Customer release hash is reused for DEV/UAT/PROD while physical bindings differ.
+
+## Framework release dependency
+
+Framework Phase 3 source version `0.3.0` is merged to `fabric-data-framework/main`, but the immutable `v0.3.0` wheel release is **not yet published** because GitHub-hosted Actions jobs are currently failing before runner assignment (`runner_id=0`, no workflow steps).
+
+Therefore this Customer feature branch may prepare and test the exact `==0.3.0` upgrade, but it must not be merged to `main` as a completed production dependency upgrade until the immutable framework artifact exists and exact-release integration can run.
+
+This deliberately preserves the canonical rule that domains consume released immutable framework versions rather than treating framework `main` as a production package source.
 
 ## CI credential model
 
 `FRAMEWORK_REPO_TOKEN` is optional for the ordinary Customer source-contract job and required only for private cross-repository/release integration.
 
-Without that secret, metadata/dependency validation, compile and Customer wheel build still run; private framework integration is explicitly skipped. With the secret, CI consumes the exact framework `0.3.0` tag/release, runs the full tests, builds the release manifest and validates DEV/UAT/PROD deployment plans.
+Without that secret, metadata/dependency validation, compile and Customer wheel build still run; private framework integration is explicitly skipped. With the secret and an existing framework `v0.3.0` release, CI consumes the exact release, runs the full tests, builds the release manifest and validates DEV/UAT/PROD deployment plans.
 
 ## Environment promotion proof
 
@@ -44,16 +52,18 @@ The same release manifest is combined with different environment bindings for DE
 - Framework/Customer workflow YAML files parse successfully.
 - Framework Phase 3 suite: **37 passed**.
 
+These local source-under-test checks do not replace the required immutable-release integration gate.
+
 ## Remote CI/release state
 
-GitHub Actions definitions are present but have not yet run on GitHub at the time of this status update. The PR must prove the source-contract job on GitHub.
+The Customer PR will exercise GitHub Actions as far as current account/runner infrastructure permits. Framework GitHub Actions has already demonstrated a repeatable hosted-runner assignment blocker before any step executes, so an equivalent Customer runner failure must be classified as infrastructure rather than application-test failure if the same `runner_id=0`/empty-step evidence appears.
 
-The exact private framework integration job runs only if `FRAMEWORK_REPO_TOKEN` exists. If the secret is absent, the job states the skip explicitly and this limitation remains documented.
+No Customer tag/release is created by this implementation PR.
 
-No Customer tag/release is created in this implementation PR.
+## Known limitations / blockers
 
-## Known limitations
-
+- Immutable framework `v0.3.0` wheel release is required before this dependency upgrade can merge as complete.
+- GitHub-hosted runner assignment is currently blocked on the private framework repository before any workflow step executes; root cause cannot be determined from the repository API available here and must not be guessed.
 - No real Fabric workspace deployment has executed.
 - Checked-in bindings are reference values, not company resource IDs.
 - No Fabric Pipeline/Notebook item exists yet.
@@ -63,7 +73,7 @@ No Customer tag/release is created in this implementation PR.
 
 ## Exact next implementation step
 
-After Phase 3 CI is green, add a small multi-dataset Customer scenario to exercise the framework's next dispatcher/failure-isolation slice:
+Once the immutable framework `0.3.0` artifact exists and this Customer Phase 3 dependency PR passes exact-release integration, merge it and then add a small multi-dataset Customer scenario to exercise the framework's dispatcher/failure-isolation slice:
 
 - `crm.customer` remains HIGH/critical path;
 - add at least one independent non-critical dataset fixture;
