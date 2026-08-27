@@ -7,7 +7,7 @@ Last updated: 2026-08-28
 - Phase 0 — canonical architecture: **COMPLETE**.
 - Framework Phase 1 foundation: **SATISFIED**.
 - Customer Phase 2 CRM Customer vertical slice: **COMPLETE**.
-- Phase 3 enterprise delivery spine participation: **IMPLEMENTED ON FEATURE BRANCH; WAITING FOR IMMUTABLE FRAMEWORK 0.3.0 RELEASE**.
+- Phase 3 enterprise delivery spine participation: **IMPLEMENTED ON FEATURE BRANCH; WAITING FOR IMMUTABLE FRAMEWORK 0.3.0 RELEASE AND GITHUB-HOSTED RUNNER AVAILABILITY**.
 
 ## Last completed step
 
@@ -54,16 +54,43 @@ The same release manifest is combined with different environment bindings for DE
 
 These local source-under-test checks do not replace the required immutable-release integration gate.
 
-## Remote CI/release state
+## Remote GitHub Actions validation
 
-The Customer PR will exercise GitHub Actions as far as current account/runner infrastructure permits. Framework GitHub Actions has already demonstrated a repeatable hosted-runner assignment blocker before any step executes, so an equivalent Customer runner failure must be classified as infrastructure rather than application-test failure if the same `runner_id=0`/empty-step evidence appears.
+Customer PR #6 triggered a real `customer-ci` workflow (run `33127710182`). Both jobs failed before any workflow step executed:
+
+```text
+source-metadata-and-wheel:
+  runner_id = 0
+  runner_name = ""
+  steps = []
+
+exact-framework-integration:
+  runner_id = 0
+  runner_name = ""
+  steps = []
+```
+
+Both terminated within roughly two seconds. Because the source-only job does not require `FRAMEWORK_REPO_TOKEN`, this evidence shows the immediate failure is runner assignment rather than missing private-framework credentials or application-test failure.
+
+This matches the separately reproduced framework-repository hosted-runner blocker. The account-level root cause cannot be established from the repository API available here and must not be guessed.
+
+## Merge/release state
+
+Customer Phase 3 PR #6 remains intentionally **OPEN**.
+
+It must not merge until:
+
+1. GitHub-hosted runner availability is restored;
+2. framework `v0.3.0` immutable wheel release exists;
+3. the Customer source-contract job runs successfully;
+4. exact framework-release integration can run with authorized private-repository read credentials.
 
 No Customer tag/release is created by this implementation PR.
 
 ## Known limitations / blockers
 
 - Immutable framework `v0.3.0` wheel release is required before this dependency upgrade can merge as complete.
-- GitHub-hosted runner assignment is currently blocked on the private framework repository before any workflow step executes; root cause cannot be determined from the repository API available here and must not be guessed.
+- GitHub-hosted runner assignment is currently blocked before any workflow step executes on both private repositories.
 - No real Fabric workspace deployment has executed.
 - Checked-in bindings are reference values, not company resource IDs.
 - No Fabric Pipeline/Notebook item exists yet.
