@@ -1,0 +1,34 @@
+[
+  {
+    "customer_id": "C001",
+    "name": "Alice",
+    "address": "1 Main St",
+    "segment": "standard",
+    "email": "alice@example.com",
+    "modified_at": "2026-08-02T12:00:00Z"
+  },
+  {
+    "customer_id": "C002",
+    "name": "Bob Smith",
+    "address": "22 Main St",
+    "segment": "enterprise",
+    "email": "bob@example.com",
+    "modified_at": "2026-08-02T12:00:00Z"
+  },
+  {
+    "customer_id": "C004",
+    "name": "Dana",
+    "address": "4 Main St",
+    "segment": "premium",
+    "email": "dana@example.com",
+    "modified_at": "2026-08-02T12:00:00Z"
+  },
+  {
+    "customer_id": "C005",
+    "name": "Bad Segment",
+    "address": "5 Main St",
+    "segment": "mystery",
+    "email": "c005@example.com",
+    "modified_at": "2026-08-02T12:00:00Z"
+  }
+]

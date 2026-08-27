@@ -1,0 +1,26 @@
+[
+  {
+    "customer_id": "C001",
+    "name": " Alice ",
+    "address": "1 Main St",
+    "segment": "standard",
+    "email": "ALICE@EXAMPLE.COM",
+    "modified_at": "2026-08-01T10:00:00Z"
+  },
+  {
+    "customer_id": "C002",
+    "name": "Bob",
+    "address": "2 Main St",
+    "segment": "premium",
+    "email": "bob@example.com",
+    "modified_at": "2026-08-01T10:00:00Z"
+  },
+  {
+    "customer_id": "C003",
+    "name": "Invalid Email",
+    "address": "3 Main St",
+    "segment": "standard",
+    "email": "not-an-email",
+    "modified_at": "2026-08-01T11:00:00Z"
+  }
+]
