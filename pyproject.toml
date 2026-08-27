@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fabric-customer-reference"
+version = "0.1.0"
+description = "Customer domain reference implementation for the enterprise Microsoft Fabric data framework."
+requires-python = ">=3.11"
+dependencies = [
+  "fabric-data-framework==0.2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-ra"

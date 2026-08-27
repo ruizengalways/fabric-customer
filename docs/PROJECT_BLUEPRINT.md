@@ -5,236 +5,135 @@ Last updated: 2026-08-28
 
 ## 1. Goal
 
-Provide the first realistic domain/reference implementation proving that a business domain can consume the reusable `fabric-data-framework` package without copying generic runtime logic or depending on a shared cross-workspace execution notebook.
-
-The Customer domain will demonstrate representative ingestion/state-management behaviours with tiny synthetic datasets and production-oriented correctness, audit, quarantine and recovery tests.
+Provide a realistic Customer-domain reference proving a domain can consume the reusable `fabric-data-framework` without copying generic capture/apply/control-plane algorithms.
 
 ## 2. Ownership
 
-This repository owns:
+Customer owns:
 
-- Customer source-system configuration and contracts;
-- Customer source-controlled dataset metadata;
-- Customer Bronze/source-faithful mappings;
-- Customer-specific transformations and canonical model;
-- Customer-specific data-quality and reconciliation rules;
-- domain-owned Fabric Pipeline/Notebook/Lakehouse/Warehouse item definitions where applicable;
-- fixtures, integration tests and deployment smoke tests.
+- source-controlled Customer dataset metadata values;
+- source parsing/mapping and canonical Customer shape;
+- business-specific DQ/reconciliation rule definitions;
+- domain fixtures/integration/smoke tests;
+- domain-owned Fabric items when introduced.
 
-It does not own infrastructure provisioning or generic framework algorithms.
+Framework owns generic WATERMARK, Bronze envelope, quarantine execution semantics, SCD2, reconciliation/state rules, runtime audit and deployment/control-plane contracts.
 
-## 3. Non-goals
+## 3. Implemented Phase 2 slice
 
-- Reimplementing `apply_scd2`, watermark engines, snapshot diff, CDC normalization, generic orchestration, quarantine or reconciliation engines.
-- Power BI dashboards, DAX, semantic models or BI visualization.
-- Managing capacity, Domains, workspace RBAC, networking or tenant settings.
-- Building dozens of bespoke source pipelines merely to simulate scale.
-- Hard-coding one pipeline branch/activity chain per table when stable framework metadata can drive the same behaviour.
-
-## 4. Framework dependency model
-
-The domain pins an immutable released framework version, for example:
+Source-controlled config:
 
 ```text
-fabric-data-framework==1.2.0
+config/datasets/crm.customer.json
 ```
 
-Mutable branch dependencies such as `@main` are prohibited for production delivery. A framework upgrade is an explicit Customer pull request with CI validation. Customer release/version and framework release/version remain independent provenance dimensions.
+declares:
 
-## 5. Environment and infrastructure contract
+- source `crm / dbo.Customer`;
+- target `silver.customer`;
+- WATERMARK capture;
+- `modified_at` watermark;
+- `customer_id` tie-breaker;
+- SCD2 apply;
+- `customer_id` business/merge key;
+- tracked `name`, `address`, `segment`, `email`;
+- execution group `crm_daily` and HIGH criticality;
+- Customer DQ/quarantine policy reference;
+- required reconciliation policy.
 
-Customer configuration refers to logical environment/domain resources. Physical workspace, Lakehouse, Warehouse and control-plane resource identifiers are supplied through the shared infrastructure contract defined by the ecosystem architecture.
+This file is the semantic source of truth for the dataset. DEV/UAT/PROD materialize the same released definition but keep independent runtime state.
 
-The domain must not assume whether those resources were manually provisioned by an enterprise platform team or later created by Terraform in `fabric-infra`.
+## 4. Domain code
 
-## 6. Metadata-driven domain configuration
+`src/fabric_customer/domain.py` contains only Customer-specific behaviour:
 
-Customer declares dataset semantics in source-controlled configuration using the framework-owned schema. The domain provides values; the framework defines and executes their meaning.
+- parse source ISO timestamps to typed datetimes;
+- normalize/trim Customer strings;
+- normalize segment casing;
+- normalize email casing;
+- business DQ rule: email contains `@`;
+- business DQ rule: segment belongs to STANDARD/PREMIUM/ENTERPRISE.
 
-Representative metadata fields include:
+No watermark or SCD2 algorithm exists in this repo.
 
-- dataset/source/target identity;
-- capture strategy;
-- apply strategy;
-- business key and merge key;
-- watermark column and tie-breaker;
-- event-time column;
-- tracked columns;
-- delete/late-arrival policy selection;
-- execution group and criticality;
-- simple dependency declarations;
-- domain DQ policy/rules;
-- quarantine action policy;
-- reconciliation policy.
+## 5. Reference fixture behaviour
 
-Example:
+Initial fixture proves:
 
-```yaml
-dataset: crm.customer
-source:
-  system: crm
-  object: dbo.Customer
-target:
-  layer: silver
-  object: customer
-capture_strategy: WATERMARK
-apply_strategy: SCD2
-business_key:
-  - customer_id
-merge_key:
-  - customer_id
-watermark:
-  column: modified_at
-  tie_breaker:
-    - customer_id
-event_time_column: modified_at
-tracked_columns:
-  - name
-  - address
-  - segment
-orchestration:
-  execution_group: crm_daily
-  criticality: HIGH
-quality:
-  policy: customer_standard
-  quarantine_policy: reject_bad_rows
-reconciliation:
-  policy: standard_count_and_key
-```
+- two valid customers sharing the same timestamp are both captured through tie-breaker ordering;
+- one later invalid-email row is quarantined with lineage;
+- accepted records reach Silver SCD2;
+- the watermark can advance through the row-level quarantined source position only because reconciliation accounts for the quarantined row.
 
-This source-controlled definition is deployed/materialized into the framework control plane with config version/hash and Customer Git SHA. Runtime operational overrides may temporarily tune allowed operational parameters, but they do not replace Git as the source of semantic truth.
+Incremental fixture proves:
 
-## 7. Multi-table orchestration model
+- unchanged C001 at a later timestamp does not create a new SCD2 version;
+- changed C002 closes the old version and opens a new current version;
+- new C004 inserts;
+- invalid-segment C005 is quarantined;
+- all incremental rows share the same timestamp, exercising tie-breaker ordering;
+- watermark advances to `(timestamp, C005)` after successful reconciliation;
+- rerun selects no rows and makes no target change.
 
-When Customer eventually contains tens of datasets, it should use a small number of execution-group dispatchers rather than one bespoke pipeline per dataset.
+A forced-reconciliation-failure integration test proves proposed target changes and new watermark are not committed.
 
-Reference pattern:
-
-```text
-Customer schedule/trigger
-  -> framework metadata lookup
-  -> select enabled datasets for execution group
-  -> bounded parallel dispatch
-  -> generic dataset executor per dataset
-  -> aggregate outcomes
-```
-
-A failed independent dataset must not immediately terminate all other Customer datasets. The framework records per-dataset outcomes and computes a final aggregate status according to criticality/failure policy.
-
-Customer owns dataset criticality and dependency declarations; the framework owns generic failure isolation/status aggregation semantics.
-
-## 8. Initial vertical slice
-
-The first domain implementation after the framework foundation is available is one CRM Customer dataset:
-
-```text
-CRM customer
-  -> WATERMARK capture using modified_at + customer_id tie-breaker
-  -> Bronze normalized framework contract
-  -> validation/quarantine/reconciliation hooks
-  -> SCD2 apply
-  -> Silver canonical customer
-  -> committed watermark only after required gates pass
-```
-
-The exact config schema is owned by the framework and will be consumed rather than duplicated.
-
-Initial tests should use tiny fixtures but include production-significant cases:
-
-- new customer;
-- changed customer;
-- duplicate watermark timestamp with tie-breaker;
-- unchanged record;
-- rerun/idempotency;
-- late arrival once framework policy supports it;
-- invalid/quarantinable row;
-- reconciliation accounting;
-- failed attempt not advancing watermark.
-
-## 9. Representative future scenarios
-
-After the thin vertical slice works end to end, the domain may add small representative fixtures for:
-
-- legacy full snapshot -> snapshot diff -> SCD2;
-- CDC-style transactional events -> normalized Bronze -> dedupe -> UPSERT/APPEND;
-- multi-dataset execution group with an intentionally failing non-critical dataset proving siblings continue and aggregate `PARTIAL_SUCCESS`;
-- quarantine/replay scenario proving lineage from original rejected data to replayed run.
-
-Lightweight streaming belongs later and remains secondary.
-
-## 10. Domain DQ and quarantine responsibility
-
-Customer owns business-specific rule definitions and acceptable thresholds. The framework owns reusable execution, action semantics, lineage and audit contracts.
-
-Examples of Customer-owned rules:
-
-- Customer ID must be non-null;
-- email format rule if part of Customer contract;
-- segment allowed-value rule;
-- domain-specific freshness expectations.
-
-The configured action can be warn, quarantine row, quarantine batch or fail dataset subject to framework-supported policy.
-
-Quarantine is never used to hide platform/permission/code failures.
-
-## 11. Planned repository structure
-
-Only documentation exists currently. Later structure will be created as needed, for example:
+## 6. Current repo shape
 
 ```text
 fabric-customer/
-  pyproject.toml or dependency manifest
+  pyproject.toml
   config/
     datasets/
-    quality/
-    reconciliation/
-  src/ or domain notebooks/
+      crm.customer.json
+  src/fabric_customer/
+    __init__.py
+    metadata.py
+    domain.py
   tests/
     fixtures/
-    integration/
-    smoke/
-  fabric/                  # only when domain-owned Fabric item definitions are introduced
+      crm_customer_initial.json
+      crm_customer_incremental.json
+    test_metadata.py
+    test_customer_vertical_slice.py
   docs/
-    PROJECT_BLUEPRINT.md
-    CURRENT_STATUS.md
-    adr/
-    runbooks/
 ```
 
-No placeholder source-system directories are created before a scenario is implemented.
+## 7. Dependency model
 
-## 12. Testing model
+`pyproject.toml` declares exact framework dependency `fabric-data-framework==0.2.0`.
 
-Customer tests validate domain integration with the pinned framework version.
+The framework package has not yet been published immutably, so local cross-repo Phase 2 tests install/reference the framework source under test and install Customer without resolving the external dependency. Phase 3 replaces that development arrangement with immutable package release/download semantics.
 
-Domain tests are responsible for:
+## 8. Testing responsibility
 
-- dataset metadata values/contract compatibility;
-- domain transformations;
-- domain DQ/reconciliation rules;
-- representative integration/recovery behaviour;
-- deployed smoke tests.
+Customer tests cover domain metadata values, mapping/DQ rules and cross-package integration behaviour. Framework tests cover generic algorithm invariants.
 
-Generic engine correctness, effective-config override rules, orchestration aggregation and generic quarantine/audit invariants belong in framework tests.
+Current Customer test suite covers:
 
-## 13. Delivery model
+- framework schema compatibility of `crm.customer` metadata;
+- initial and incremental WATERMARK execution;
+- duplicate timestamps/tie-breaker ordering;
+- row quarantine/accounting;
+- normalized mapping;
+- SCD2 changed/unchanged versions;
+- significant step audit sequence;
+- rerun idempotency;
+- failed reconciliation preserving target and watermark.
 
-Use feature branch -> PR -> CI -> merge. The resulting immutable Customer Git SHA is promoted through DEV -> UAT -> PROD as the same artifact/source revision.
+## 9. Delivery model
 
-Deployment provenance records at least Customer release, Customer Git SHA, deployed config hash/version and exact framework version.
+Same immutable Customer Git SHA/config bundle/framework version moves DEV -> UAT -> PROD. Config schema/migrations/definitions are promoted; environment-local runtime state is not.
 
-A runtime override does not change the recorded semantic deployment provenance; each affected run additionally records the effective-config hash and active override lineage.
+Phase 3 implements the CI/CD delivery spine compatible with both GitHub-driven Fabric automation and Fabric-native Deployment Pipeline promotion.
 
-## 14. Roadmap
+## 10. Roadmap status
 
-- Phase 0 — COMPLETE: canonical project memory and dependency/delivery ADRs.
-- Phase 1 — no Customer runtime implementation; framework foundation establishes metadata/control-plane/runtime contracts first.
-- Phase 2 — implement the single CRM Customer WATERMARK -> Bronze -> validation/quarantine -> SCD2 -> reconciliation -> Silver/state-commit slice.
-- Phase 3 — participate in delivery-spine implementation and same-SHA promotion.
-- Later phases — add only representative scenarios needed to prove reusable multi-dataset/failure-isolation/quarantine/recovery behaviours.
+- Phase 0 — COMPLETE: canonical architecture.
+- Phase 1 — COMPLETE dependency: framework foundation.
+- Phase 2 — COMPLETE: first `crm.customer` executable vertical slice.
+- Phase 3 — NEXT: CI/package/release/deployment spine.
+- Later — add only representative datasets needed to prove remaining reusable strategies, multi-dataset failure isolation/recovery and streaming.
 
-## 15. Documentation obligations
+## 11. Documentation obligation
 
-Every meaningful domain implementation change updates `docs/CURRENT_STATUS.md`; domain architecture changes update this blueprint and/or a Customer ADR. Cross-repository architecture changes are made in the framework ecosystem blueprint.
-
-Routine implementation inside accepted architecture should proceed in coherent chunks without stopping for approval after every tiny file or class.
+Every coherent domain implementation updates `CURRENT_STATUS.md`. Routine work inside accepted architecture continues without per-file approval pauses.

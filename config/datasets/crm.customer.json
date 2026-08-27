@@ -1,0 +1,46 @@
+{
+  "dataset_id": "crm.customer",
+  "source": {
+    "system": "crm",
+    "object": "dbo.Customer",
+    "connection_ref": "crm_readonly"
+  },
+  "target": {
+    "layer": "silver",
+    "object": "customer"
+  },
+  "load": {
+    "capture_strategy": "WATERMARK",
+    "apply_strategy": "SCD2",
+    "business_key": ["customer_id"],
+    "merge_key": ["customer_id"],
+    "watermark": {
+      "column": "modified_at",
+      "tie_breaker": ["customer_id"],
+      "overlap_window_seconds": 0
+    },
+    "event_time_column": "modified_at",
+    "tracked_columns": ["name", "address", "segment", "email"],
+    "delete_policy": "IGNORE"
+  },
+  "orchestration": {
+    "execution_group": "crm_daily",
+    "criticality": "HIGH",
+    "dependencies": [],
+    "priority": 100,
+    "retry_count": 2,
+    "timeout_seconds": 1800,
+    "batch_size": 10000,
+    "max_concurrency": 4
+  },
+  "quality": {
+    "policy_name": "customer_standard",
+    "quarantine_policy": "reject_bad_rows"
+  },
+  "reconciliation": {
+    "policy_name": "standard_count_and_scd2_invariant",
+    "required_for_state_commit": true
+  },
+  "enabled": true,
+  "config_schema_version": 1
+}

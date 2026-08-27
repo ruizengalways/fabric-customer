@@ -4,114 +4,107 @@ Last updated: 2026-08-28
 
 ## Current phase
 
-Phase 0 — Canonical architecture and repository boundaries: **COMPLETE**.
+Phase 0 — canonical architecture: **COMPLETE**.
 
-Framework Phase 1 dependency: **SATISFIED**.
+Framework Phase 1 foundation: **SATISFIED**.
 
-Customer Phase 2 — `crm.customer` WATERMARK -> Bronze -> validation/quarantine -> SCD2 -> reconciliation -> Silver/state-commit vertical slice: **READY TO START**.
+Customer Phase 2 — `crm.customer` WATERMARK -> Bronze -> validation/quarantine -> SCD2 -> reconciliation -> state-commit vertical slice: **COMPLETE**.
 
 ## Last completed step
 
-The framework Phase 1 coherent foundation is now merged to `fabric-data-framework/main` at merge commit `24432cadfba8e9e08091fe22614450a812fd56f8` with source package version `0.1.0`.
+Implemented the first Customer runtime/reference slice against `fabric-data-framework` source version `0.2.0`.
 
-That foundation provides the contracts Customer was waiting for:
+Customer now has real source-controlled semantic metadata, domain mapping/DQ code, deterministic CRM fixtures and cross-package integration tests. Generic capture/apply/reconciliation logic remains in the framework.
 
-- strict typed dataset/source/target/load/orchestration/DQ/reconciliation metadata;
-- business/merge key and WATERMARK `(column, tie_breaker)` validation;
-- audited operational overrides and immutable effective-config hashing;
-- provider-neutral environment/resource resolution;
-- runtime context and status aggregation contracts;
-- watermark/state commit gates;
-- audit/quarantine/reconciliation contracts;
-- logical control-plane schema foundation;
-- provider-neutral release/deployment provenance contracts.
+## Implemented components
 
-Customer implementation can now begin without redefining framework-owned primitives.
+- `pyproject.toml` with exact `fabric-data-framework==0.2.0` dependency contract.
+- `config/datasets/crm.customer.json`.
+- `src/fabric_customer/metadata.py`.
+- `src/fabric_customer/domain.py`.
+- deterministic initial/incremental CRM fixture JSON.
+- metadata contract test.
+- end-to-end Customer vertical-slice integration/recovery tests.
 
-## Current implementation
+## Dataset semantics
 
-Documentation-only Customer domain foundation. No Customer dataset config, transformation, Fabric item, fixture or test code has been implemented yet.
+`crm.customer` uses:
 
-## Important decisions made
-
-- Customer owns domain-specific configuration, transformations, canonical model, DQ/reconciliation rules and domain-owned Fabric items/tests.
-- Generic runtime behaviours are consumed from `fabric-data-framework`, not copied.
-- Customer dataset semantics are metadata-driven through the framework-owned config schema.
-- Dataset metadata declares business/merge keys, watermark/event-time/tie-breaker fields, capture/apply strategy, execution group, criticality, DQ/quarantine policy and reconciliation policy where applicable.
-- Semantic metadata is source-controlled and deployed with config hash/Customer Git SHA; runtime operational overrides do not replace Git as semantic source of truth.
-- Tens of Customer datasets should use a small number of generic execution-group dispatchers rather than one bespoke pipeline per table.
-- A failed independent dataset must not immediately terminate unrelated Customer datasets; framework aggregate policy determines final `SUCCESS`, `PARTIAL_SUCCESS` or `FAILED`.
-- Customer owns criticality/dependency declarations; framework owns generic failure-isolation semantics.
-- Customer pins an exact released framework version and upgrades it explicitly through PR/CI. During local cross-repo Phase 2 development, the framework source under test may be referenced directly, but production delivery must use an immutable released version.
-- Physical Fabric resources are resolved through the shared infrastructure contract.
-- Customer deployments promote the same immutable release identity/Git SHA through DEV -> UAT -> PROD.
-- DEV, UAT and PROD each have their own isolated Customer control-plane runtime state.
-- Control-plane schema migrations and Customer semantic metadata definitions are promoted as release artifacts; watermarks/run history/runtime overrides/quarantine/reprocess state are not promoted.
-- The first implementation is one CRM Customer vertical slice, not a broad strategy catalog.
-- Routine implementation inside accepted architecture proceeds in coherent chunks rather than stopping after every tiny class/file.
-
-## Files/components implemented
-
-Documentation only:
-
-- `README.md`
-- `docs/PROJECT_BLUEPRINT.md`
-- `docs/CURRENT_STATUS.md`
-- `docs/adr/0001-versioned-framework-dependency.md`
-- `docs/adr/0002-git-sha-environment-promotion.md`
-- `docs/runbooks/README.md`
-
-Cross-repository runtime/control-plane/CI-CD details remain canonical in `fabric-data-framework` docs and ADRs.
+- WATERMARK `modified_at`;
+- tie-breaker `customer_id`;
+- SCD2;
+- business/merge key `customer_id`;
+- tracked attributes `name`, `address`, `segment`, `email`;
+- HIGH criticality / `crm_daily` execution group;
+- Customer email/segment DQ rules with row quarantine;
+- required reconciliation before state advancement.
 
 ## Tests/checks executed
 
-Customer still has no runtime code, so no Customer unit/integration suite has run yet.
+Customer suite against framework `0.2.0` source under test:
 
-Cross-repo dependency verification completed:
+- `pytest -q`: **3 passed**.
+- `python -m compileall`: PASS.
+- wheel build: PASS (`fabric_customer_reference-0.1.0-py3-none-any.whl`) and package modules verified in wheel contents.
 
-- `fabric-data-framework` Phase 1 package source exists and is merged;
-- framework local validation reported 24 passing unit/contract tests plus package build checks;
-- framework contracts now express the metadata, runtime-state, quarantine/reconciliation and deployment boundaries required by Customer Phase 2.
+Cross-package assertions cover:
+
+- source-controlled metadata validation/hash;
+- two customers sharing one source timestamp captured without loss;
+- invalid email and invalid segment quarantine;
+- row accounting and significant step audit sequence;
+- Customer mapping normalization;
+- unchanged C001 causing no new SCD2 version;
+- changed C002 close/open SCD2 behaviour;
+- new C004 insert;
+- duplicate-timestamp incremental tie-breaker through C005;
+- successful watermark advance after accounted row quarantine;
+- exact rerun selecting no rows and not changing target;
+- forced reconciliation failure leaving target and watermark unchanged.
+
+Framework suite for the same slice: **30 passed**.
 
 ## Test results
 
-PASS — framework dependency required to start Customer Phase 2 is satisfied.
+**PASS — Phase 2 vertical slice is executable locally across both repositories.**
+
+No enterprise Fabric workspace was modified or required for these tests.
 
 ## Known limitations
 
-- No published immutable framework package release yet; source package version is `0.1.0`.
-- No `crm.customer` metadata definition yet.
-- No Customer fixture/mapping/DQ code yet.
-- No Customer integration/smoke execution yet.
-- No deployed metadata/control-plane records yet.
-- No GitHub Actions/Fabric Deployment Pipeline release automation yet.
+- Framework `0.2.0` is source-versioned but not yet published as an immutable package release.
+- No real CRM connection; fixtures are intentionally tiny and deterministic.
+- No physical Fabric Lakehouse/Warehouse/control-plane adapter yet.
+- No Fabric Pipeline/Notebook item yet.
+- No late-arriving correction policy or delete handling yet.
+- No multi-dataset dispatcher execution in Fabric yet.
+- No GitHub Actions/Fabric Deployment Pipeline automation yet.
 
 ## Open issues/blockers
 
-No architecture blocker for starting Phase 2.
+No architecture blocker for Phase 3.
 
-The exact physical Fabric control-plane store and initial deployment mechanism remain deferred and do not block the local/integration vertical slice.
+External deployment/integration validation requires enterprise Fabric credentials/workspace bindings and an approved deployment path; CI/build/release/dry-run plumbing can be implemented before those credentials are used.
 
-## Last known-good release / commit
+## Version/provenance state
 
-Customer has no application release yet.
+Customer source package version: `0.1.0`.
 
-Framework foundation dependency: `fabric-data-framework` source package `0.1.0`, merge commit `24432cadfba8e9e08091fe22614450a812fd56f8`.
+Exact framework dependency contract: `fabric-data-framework==0.2.0`.
+
+No immutable published Customer/framework release exists yet.
 
 ## Exact next implementation step
 
-**Phase 2 — implement one coherent `crm.customer` vertical slice across `fabric-data-framework` and `fabric-customer`.**
+**Phase 3 — enterprise delivery spine across Framework and Customer.**
 
-Customer work:
+1. GitHub Actions PR CI for both repos.
+2. Framework wheel build/version/tag guardrails and immutable artifact/release workflow.
+3. Customer exact dependency/config-bundle validation.
+4. Provider-neutral release manifest generation with Customer Git SHA, framework version, config hash/schema version and Fabric item manifest version.
+5. CLI commands/contracts for control-plane schema migration and semantic metadata materialization.
+6. Environment binding/dry-run deployment planning and deployment-history recording.
+7. A GitHub-driven Fabric deployment adapter/path and Fabric Deployment Pipeline-compatible promotion path where enterprise credentials/permissions allow testing.
+8. Preserve isolated DEV/UAT/PROD runtime state throughout promotion.
 
-1. add the source-controlled `crm.customer` dataset definition using framework models;
-2. configure WATERMARK capture on `modified_at` with `customer_id` tie-breaker;
-3. configure SCD2 with `customer_id` business/merge key and tracked Customer attributes;
-4. add tiny deterministic CRM fixtures covering new, changed, unchanged, duplicate-timestamp and invalid rows;
-5. add the Customer-specific mapping and DQ rule required by those fixtures;
-6. consume framework validation/quarantine/SCD2/reconciliation/state semantics rather than reimplementing them;
-7. add cross-repo integration tests and synchronize docs.
-
-Framework work for the same slice is recorded in `fabric-data-framework/docs/CURRENT_STATUS.md`: local control-plane adapter, WATERMARK selection, Bronze normalization, reusable validation/quarantine primitives, deterministic SCD2 apply, reconciliation and atomic state commit.
-
-Do not build the complete strategy catalog, full enterprise CI/CD automation or Terraform in Phase 2.
+Do not start Terraform or broad strategy-catalog implementation in this Phase 3 slice.
