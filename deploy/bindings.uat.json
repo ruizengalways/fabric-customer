@@ -1,0 +1,20 @@
+{
+  "profile_name": "customer-uat",
+  "environment": "UAT",
+  "domain": "customer",
+  "resources": [
+    {
+      "ref": {"kind": "WORKSPACE", "logical_name": "customer-data"},
+      "environment": "UAT",
+      "domain": "customer",
+      "resource_id": "uat-customer-workspace"
+    },
+    {
+      "ref": {"kind": "LAKEHOUSE", "logical_name": "customer-silver"},
+      "environment": "UAT",
+      "domain": "customer",
+      "resource_id": "uat-customer-silver",
+      "workspace_id": "uat-customer-workspace"
+    }
+  ]
+}
