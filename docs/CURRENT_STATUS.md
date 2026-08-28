@@ -7,7 +7,7 @@ Last updated: 2026-08-28
 - Phase 0 — canonical architecture: **COMPLETE**.
 - Framework Phase 1 foundation: **SATISFIED**.
 - Customer Phase 2 CRM Customer vertical slice: **COMPLETE**.
-- Phase 3 enterprise delivery spine participation: **IMPLEMENTED ON FEATURE BRANCH; WAITING FOR IMMUTABLE FRAMEWORK 0.3.0 RELEASE AND GITHUB-HOSTED RUNNER AVAILABILITY**.
+- Phase 3 enterprise delivery spine participation: **IMPLEMENTED ON FEATURE BRANCH; WAITING FOR CUSTOMER-REPO SELF-HOSTED RUNNER REGISTRATION AND IMMUTABLE FRAMEWORK 0.3.0 RELEASE**.
 
 ## Last completed step
 
@@ -21,15 +21,38 @@ Extended the Customer reference domain to consume the Phase 3 framework delivery
 - optional exact-framework integration job added for private cross-repository validation;
 - tag-triggered Customer release workflow added;
 - Customer release workflow is designed to consume the exact released framework `0.3.0` wheel, run tests, build the Customer wheel and generate a release manifest;
-- deployment-plan tests prove the same Customer release hash is reused for DEV/UAT/PROD while physical bindings differ.
+- deployment-plan tests prove the same Customer release hash is reused for DEV/UAT/PROD while physical bindings differ;
+- CI/release workflows now target `runs-on: self-hosted` rather than GitHub-hosted runners.
 
 ## Framework release dependency
 
-Framework Phase 3 source version `0.3.0` is merged to `fabric-data-framework/main`, but the immutable `v0.3.0` wheel release is **not yet published** because GitHub-hosted Actions jobs are currently failing before runner assignment (`runner_id=0`, no workflow steps).
+Framework Phase 3 source version `0.3.0` is merged to `fabric-data-framework/main`. Framework CI has now been successfully validated on the self-hosted runner named `Bear`, but the immutable `v0.3.0` wheel release is not yet published.
 
 Therefore this Customer feature branch may prepare and test the exact `==0.3.0` upgrade, but it must not be merged to `main` as a completed production dependency upgrade until the immutable framework artifact exists and exact-release integration can run.
 
 This deliberately preserves the canonical rule that domains consume released immutable framework versions rather than treating framework `main` as a production package source.
+
+## Self-hosted runner topology
+
+GitHub job metadata proved the Framework runner is:
+
+```text
+runner_name = "Bear"
+runner_group_name = "Default"
+labels = ["self-hosted"]
+```
+
+The runner display name `Bear` is not currently a scheduler label, so workflows correctly use:
+
+```yaml
+runs-on: self-hosted
+```
+
+The repositories are owned by the personal GitHub account `ruizengalways` (`owner.type = User`), not by a GitHub Organization. GitHub repository-level self-hosted runners are dedicated to a single repository. The existing Bear runner is currently usable by `fabric-data-framework`, but Customer run `33137219877` remains queued after Framework work completed, with no steps assigned.
+
+This means the same physical Bear machine needs a separate repository-level runner registration/runner process for `fabric-customer`, or the repositories would need to move under an organization and use an organization-level shared runner with repository access. The application CI/CD contracts do not change either way.
+
+For the current personal-account layout, the minimal path is a second runner instance on Bear registered to `ruizengalways/fabric-customer`. A distinct runner working directory/service should be used so Framework and Customer runner installations do not overwrite each other.
 
 ## CI credential model
 
@@ -56,23 +79,20 @@ These local source-under-test checks do not replace the required immutable-relea
 
 ## Remote GitHub Actions validation
 
-Customer PR #6 triggered a real `customer-ci` workflow (run `33127710182`). Both jobs failed before any workflow step executed:
+The earlier GitHub-hosted Customer CI attempt failed before runner assignment. Customer CI was then changed to `runs-on: self-hosted`.
+
+Current Customer self-hosted run:
 
 ```text
-source-metadata-and-wheel:
-  runner_id = 0
-  runner_name = ""
-  steps = []
-
-exact-framework-integration:
-  runner_id = 0
-  runner_name = ""
-  steps = []
+run_id = 33137219877
+source-metadata-and-wheel = queued
+exact-framework-integration = queued
+steps = []
 ```
 
-Both terminated within roughly two seconds. Because the source-only job does not require `FRAMEWORK_REPO_TOKEN`, this evidence shows the immediate failure is runner assignment rather than missing private-framework credentials or application-test failure.
+Framework Bear CI completed successfully while these Customer jobs remained unassigned. This is now understood as repository-level runner scope, not a Python/application failure and not a missing `FRAMEWORK_REPO_TOKEN` failure.
 
-This matches the separately reproduced framework-repository hosted-runner blocker. The account-level root cause cannot be established from the repository API available here and must not be guessed.
+Once a Customer-repository runner instance is registered on Bear, rerun PR #6 CI. The source-only job should execute without the framework token; exact-release integration remains additionally gated on the immutable framework `v0.3.0` artifact and authorized private-repository read credentials.
 
 ## Merge/release state
 
@@ -80,17 +100,16 @@ Customer Phase 3 PR #6 remains intentionally **OPEN**.
 
 It must not merge until:
 
-1. GitHub-hosted runner availability is restored;
+1. a self-hosted runner is registered/authorized for `fabric-customer` and the source-contract job passes;
 2. framework `v0.3.0` immutable wheel release exists;
-3. the Customer source-contract job runs successfully;
-4. exact framework-release integration can run with authorized private-repository read credentials.
+3. exact framework-release integration runs successfully with authorized private-repository read credentials.
 
 No Customer tag/release is created by this implementation PR.
 
 ## Known limitations / blockers
 
+- Customer currently has no eligible repository-level self-hosted runner; Bear is proven on Framework but Customer jobs remain queued.
 - Immutable framework `v0.3.0` wheel release is required before this dependency upgrade can merge as complete.
-- GitHub-hosted runner assignment is currently blocked before any workflow step executes on both private repositories.
 - No real Fabric workspace deployment has executed.
 - Checked-in bindings are reference values, not company resource IDs.
 - No Fabric Pipeline/Notebook item exists yet.
@@ -100,13 +119,10 @@ No Customer tag/release is created by this implementation PR.
 
 ## Exact next implementation step
 
-Once the immutable framework `0.3.0` artifact exists and this Customer Phase 3 dependency PR passes exact-release integration, merge it and then add a small multi-dataset Customer scenario to exercise the framework's dispatcher/failure-isolation slice:
-
-- `crm.customer` remains HIGH/critical path;
-- add at least one independent non-critical dataset fixture;
-- intentionally fail one non-critical dataset;
-- prove unrelated dataset execution continues;
-- prove final parent result is `PARTIAL_SUCCESS` rather than immediate all-or-nothing failure;
-- add a simple dependent dataset and prove only the dependent branch becomes `BLOCKED_DEPENDENCY`.
+1. Register a second repository-level self-hosted runner instance on the Bear machine for `ruizengalways/fabric-customer` (or later move to an organization-level shared runner model).
+2. Rerun Customer PR #6 source-contract CI on Bear.
+3. Publish/prove immutable framework `v0.3.0` release through the Framework Bear release workflow.
+4. Run Customer exact-release integration and merge PR #6 when green.
+5. Continue with a small multi-dataset Customer scenario to exercise dispatcher/failure isolation.
 
 Do not add dozens of fake tables. A tiny representative graph should prove the generic pattern.
