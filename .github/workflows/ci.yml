@@ -14,7 +14,7 @@ env:
 jobs:
   source-contract:
     name: source-metadata-and-wheel
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout Customer
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -41,7 +41,7 @@ jobs:
 
   framework-integration:
     name: exact-framework-integration
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout Customer
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
