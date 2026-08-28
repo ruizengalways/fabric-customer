@@ -4,107 +4,89 @@ Last updated: 2026-08-28
 
 ## Current phase
 
-Phase 0 — canonical architecture: **COMPLETE**.
-
-Framework Phase 1 foundation: **SATISFIED**.
-
-Customer Phase 2 — `crm.customer` WATERMARK -> Bronze -> validation/quarantine -> SCD2 -> reconciliation -> state-commit vertical slice: **COMPLETE**.
+- Phase 0 — canonical architecture: **COMPLETE**.
+- Framework Phase 1 foundation: **SATISFIED**.
+- Customer Phase 2 CRM Customer WATERMARK/SCD2 vertical slice: **COMPLETE**.
+- Phase 3 enterprise delivery spine participation: **COMPLETE ON PR #6; RELEASED-WHEEL INTEGRATION VALIDATED**.
 
 ## Last completed step
 
-Implemented the first Customer runtime/reference slice against `fabric-data-framework` source version `0.2.0`.
+Framework `v0.3.0` was published from GitHub Actions and Customer PR #6 was revalidated against the actual release artifact rather than framework source.
 
-Customer now has real source-controlled semantic metadata, domain mapping/DQ code, deterministic CRM fixtures and cross-package integration tests. Generic capture/apply/reconciliation logic remains in the framework.
+The exact framework gate now proves the immutable artifact path end to end:
 
-## Implemented components
+```text
+GitHub Release v0.3.0
+  -> download fabric_data_framework-0.3.0-py3-none-any.whl
+  -> download SHA256SUMS
+  -> sha256sum -c SHA256SUMS
+  -> install released wheel
+  -> install Customer
+  -> cross-package tests
+  -> release manifest
+  -> DEV/UAT/PROD deployment-plan validation
+```
 
-- `pyproject.toml` with exact `fabric-data-framework==0.2.0` dependency contract.
-- `config/datasets/crm.customer.json`.
-- `src/fabric_customer/metadata.py`.
-- `src/fabric_customer/domain.py`.
-- deterministic initial/incremental CRM fixture JSON.
-- metadata contract test.
-- end-to-end Customer vertical-slice integration/recovery tests.
+Customer run `33143386148` was rerun after the release became available. Both jobs completed successfully:
 
-## Dataset semantics
+```text
+source-metadata-and-wheel     SUCCESS
+exact-framework-integration   SUCCESS
+```
 
-`crm.customer` uses:
+Within the exact integration job, framework wheel download/checksum verification, exact installation, cross-package tests and release-manifest/deployment-plan validation all passed.
 
-- WATERMARK `modified_at`;
-- tie-breaker `customer_id`;
-- SCD2;
-- business/merge key `customer_id`;
-- tracked attributes `name`, `address`, `segment`, `email`;
-- HIGH criticality / `crm_daily` execution group;
-- Customer email/segment DQ rules with row quarantine;
-- required reconciliation before state advancement.
+## Phase 3 Customer content
 
-## Tests/checks executed
+- exact dependency declaration `fabric-data-framework==0.3.0`;
+- source metadata validator rejecting physical Fabric IDs in semantic dataset definitions;
+- DEV/UAT/PROD environment binding profiles separated from semantic metadata;
+- Customer source-contract CI and wheel build;
+- exact released-framework-wheel integration job;
+- tag-triggered Customer release workflow;
+- framework release SHA-256 verification before installation;
+- release-manifest and same-release DEV/UAT/PROD deployment-plan contract tests.
 
-Customer suite against framework `0.2.0` source under test:
+## Environment promotion proof
 
-- `pytest -q`: **3 passed**.
-- `python -m compileall`: PASS.
-- wheel build: PASS (`fabric_customer_reference-0.1.0-py3-none-any.whl`) and package modules verified in wheel contents.
+`deploy/bindings.dev.json`, `bindings.uat.json` and `bindings.prod.json` contain non-secret reference environment bindings only. They are outside the semantic release hash. The same immutable Customer release identity is combined with different environment bindings for DEV/UAT/PROD, while runtime state such as watermarks, leases, run history, quarantine/reprocess records and runtime overrides remains environment-local.
 
-Cross-package assertions cover:
+## Validation summary
 
-- source-controlled metadata validation/hash;
-- two customers sharing one source timestamp captured without loss;
-- invalid email and invalid segment quarantine;
-- row accounting and significant step audit sequence;
-- Customer mapping normalization;
-- unchanged C001 causing no new SCD2 version;
-- changed C002 close/open SCD2 behaviour;
-- new C004 insert;
-- duplicate-timestamp incremental tie-breaker through C005;
-- successful watermark advance after accounted row quarantine;
-- exact rerun selecting no rows and not changing target;
-- forced reconciliation failure leaving target and watermark unchanged.
+Current remote validation:
 
-Framework suite for the same slice: **30 passed**.
+- Framework GitHub Release `v0.3.0`: **PUBLISHED**;
+- framework wheel asset: **PUBLISHED**;
+- framework `SHA256SUMS`: **PUBLISHED**;
+- Customer source-contract job: **PASS**;
+- exact immutable framework released-wheel download/checksum verification: **PASS**;
+- exact framework installation: **PASS**;
+- Customer cross-package tests: **PASS**;
+- release manifest and DEV/UAT/PROD deployment-plan validation: **PASS**.
 
-## Test results
+## Merge/release state
 
-**PASS — Phase 2 vertical slice is executable locally across both repositories.**
+Customer Phase 3 PR #6 is ready for final CI and squash merge.
 
-No enterprise Fabric workspace was modified or required for these tests.
+No Customer production release has been created. This PR establishes the delivery contract; a formal Customer release should be created only when a coherent domain deployment candidate is intentionally frozen for promotion.
 
-## Known limitations
+## Known limitations / blockers
 
-- Framework `0.2.0` is source-versioned but not yet published as an immutable package release.
-- No real CRM connection; fixtures are intentionally tiny and deterministic.
-- No physical Fabric Lakehouse/Warehouse/control-plane adapter yet.
-- No Fabric Pipeline/Notebook item yet.
-- No late-arriving correction policy or delete handling yet.
-- No multi-dataset dispatcher execution in Fabric yet.
-- No GitHub Actions/Fabric Deployment Pipeline automation yet.
+- No real Fabric workspace deployment has executed.
+- Checked-in bindings are reference values, not company resource IDs.
+- No Fabric Pipeline/Notebook item exists yet.
+- No actual DEV/UAT/PROD control-plane store is bound.
+- No multi-dataset Customer dispatcher scenario yet; Framework PR #9 contains the generic 0.4.0 dispatcher candidate.
+- No snapshot/CDC representative scenario yet.
 
-## Open issues/blockers
+## Exact next implementation sequence
 
-No architecture blocker for Phase 3.
+1. Finalize and squash merge Customer PR #6.
+2. Rebase/revalidate and merge Framework 0.4.0 dispatcher PR #9 now that the 0.3.0 release boundary is frozen.
+3. Add a tiny multi-dataset Customer graph for dispatcher/failure-isolation testing.
+4. Continue with retry/backfill/replay.
+5. Add representative SNAPSHOT_DIFF and CDC/UPSERT scenarios.
+6. Add delete/late-arrival/schema-evolution correctness policies.
+7. Add real Fabric Environment/Notebook/Pipeline deployment integration.
 
-External deployment/integration validation requires enterprise Fabric credentials/workspace bindings and an approved deployment path; CI/build/release/dry-run plumbing can be implemented before those credentials are used.
-
-## Version/provenance state
-
-Customer source package version: `0.1.0`.
-
-Exact framework dependency contract: `fabric-data-framework==0.2.0`.
-
-No immutable published Customer/framework release exists yet.
-
-## Exact next implementation step
-
-**Phase 3 — enterprise delivery spine across Framework and Customer.**
-
-1. GitHub Actions PR CI for both repos.
-2. Framework wheel build/version/tag guardrails and immutable artifact/release workflow.
-3. Customer exact dependency/config-bundle validation.
-4. Provider-neutral release manifest generation with Customer Git SHA, framework version, config hash/schema version and Fabric item manifest version.
-5. CLI commands/contracts for control-plane schema migration and semantic metadata materialization.
-6. Environment binding/dry-run deployment planning and deployment-history recording.
-7. A GitHub-driven Fabric deployment adapter/path and Fabric Deployment Pipeline-compatible promotion path where enterprise credentials/permissions allow testing.
-8. Preserve isolated DEV/UAT/PROD runtime state throughout promotion.
-
-Do not start Terraform or broad strategy-catalog implementation in this Phase 3 slice.
+Do not add dozens of fake tables. A small representative graph should prove the reusable platform behaviour.

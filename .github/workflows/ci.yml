@@ -1,0 +1,79 @@
+name: customer-ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  source-contract:
+    name: source-metadata-and-wheel
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Customer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.13"
+      - name: Validate exact framework pin and metadata
+        run: python scripts/validate_metadata.py
+      - name: Compile Customer source
+        run: python -m compileall -q src scripts tests
+      - name: Build Customer wheel without resolving framework dependency
+        run: |
+          python -m pip install "setuptools>=77"
+          python -m pip wheel . --no-deps --no-build-isolation -w dist
+          (cd dist && sha256sum *.whl | tee SHA256SUMS)
+      - name: Upload Customer wheel
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: customer-wheel-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  framework-integration:
+    name: exact-framework-integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Customer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.13"
+      - name: Download and verify exact framework release
+        run: |
+          mkdir framework-dist
+          BASE_URL="https://github.com/ruizengalways/fabric-data-framework/releases/download/v0.3.0"
+          curl --fail --location --retry 3 \
+            --output framework-dist/fabric_data_framework-0.3.0-py3-none-any.whl \
+            "${BASE_URL}/fabric_data_framework-0.3.0-py3-none-any.whl"
+          curl --fail --location --retry 3 \
+            --output framework-dist/SHA256SUMS \
+            "${BASE_URL}/SHA256SUMS"
+          (cd framework-dist && sha256sum -c SHA256SUMS)
+      - name: Install exact framework release and Customer
+        run: |
+          python -m pip install framework-dist/fabric_data_framework-0.3.0-py3-none-any.whl
+          python -m pip install -e ".[dev]"
+          python -m pip check
+      - name: Run cross-package tests
+        run: pytest -q
+      - name: Build release manifest contract
+        run: |
+          fabric-framework release-manifest \
+            --domain customer \
+            --domain-release-version 0.1.0 \
+            --domain-git-sha "${GITHUB_SHA}" \
+            --framework-version 0.3.0 \
+            --config-dir config/datasets \
+            --build-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --output release-manifest.json
+          fabric-framework deployment-plan --manifest release-manifest.json --bindings deploy/bindings.dev.json --output dev-plan.json
+          fabric-framework deployment-plan --manifest release-manifest.json --bindings deploy/bindings.uat.json --output uat-plan.json
+          fabric-framework deployment-plan --manifest release-manifest.json --bindings deploy/bindings.prod.json --output prod-plan.json

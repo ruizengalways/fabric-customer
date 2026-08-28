@@ -1,0 +1,20 @@
+{
+  "profile_name": "customer-prod",
+  "environment": "PROD",
+  "domain": "customer",
+  "resources": [
+    {
+      "ref": {"kind": "WORKSPACE", "logical_name": "customer-data"},
+      "environment": "PROD",
+      "domain": "customer",
+      "resource_id": "prod-customer-workspace"
+    },
+    {
+      "ref": {"kind": "LAKEHOUSE", "logical_name": "customer-silver"},
+      "environment": "PROD",
+      "domain": "customer",
+      "resource_id": "prod-customer-silver",
+      "workspace_id": "prod-customer-workspace"
+    }
+  ]
+}
