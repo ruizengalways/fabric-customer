@@ -8,19 +8,10 @@ on:
 permissions:
   contents: write
 
-env:
-  FRAMEWORK_REPO_TOKEN: ${{ secrets.FRAMEWORK_REPO_TOKEN }}
-
 jobs:
   release:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
-      - name: Require private framework read token
-        run: |
-          if [ -z "${FRAMEWORK_REPO_TOKEN}" ]; then
-            echo "FRAMEWORK_REPO_TOKEN must grant read access to the private framework release." >&2
-            exit 1
-          fi
       - name: Checkout Customer immutable tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -36,7 +27,7 @@ jobs:
           python scripts/validate_metadata.py
       - name: Download exact released framework wheel
         env:
-          GH_TOKEN: ${{ secrets.FRAMEWORK_REPO_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir framework-dist
           gh release download v0.3.0 \
