@@ -7,39 +7,52 @@ Last updated: 2026-08-28
 - Phase 0 — canonical architecture: **COMPLETE**.
 - Framework Phase 1 foundation: **SATISFIED**.
 - Customer Phase 2 CRM Customer WATERMARK/SCD2 vertical slice: **COMPLETE**.
-- Phase 3 enterprise delivery spine participation: **IMPLEMENTED ON PR #6; MIGRATED TO PUBLIC-REPOSITORY GITHUB-HOSTED CI; WAITING FOR IMMUTABLE FRAMEWORK `v0.3.0` AND EXACT INTEGRATION PASS**.
+- Phase 3 enterprise delivery spine participation: **IMPLEMENTED ON PR #6; GITHUB-HOSTED SOURCE CI PASSES; EXACT FRAMEWORK INTEGRATION CORRECTLY BLOCKED ON MISSING `v0.3.0` TAG/RELEASE**.
 
 ## Last completed step
 
-Both `fabric-customer` and `fabric-data-framework` are now public repositories. Customer CI/release workflows on PR #6 have been simplified accordingly:
+Both `fabric-customer` and `fabric-data-framework` are public repositories. Customer CI/release workflows on PR #6 now:
 
-- runner changed from `self-hosted` to GitHub-hosted `ubuntu-latest`;
-- `FRAMEWORK_REPO_TOKEN` removed;
-- private-repository skip logic removed;
-- exact framework integration now always checks out public `ruizengalways/fabric-data-framework` at exact tag `v0.3.0`;
-- Customer release downloads the exact public framework `v0.3.0` wheel using the workflow's normal GitHub token.
+- use GitHub-hosted `ubuntu-latest`;
+- require no cross-repository PAT or `FRAMEWORK_REPO_TOKEN`;
+- always run the exact framework integration gate;
+- checkout public `ruizengalways/fabric-data-framework` at exact tag `v0.3.0`;
+- release logic downloads the exact public framework `v0.3.0` wheel using the normal workflow token.
 
-This removes the previous false-green mode where the integration job succeeded while all real cross-package steps were skipped.
+This removes the previous false-green mode where the integration job could succeed while its real cross-package steps were skipped.
 
 ## Phase 3 Customer content
 
 - exact framework dependency `fabric-data-framework==0.3.0`;
-- source metadata validator that rejects physical Fabric IDs in semantic dataset definitions;
+- source metadata validator rejecting physical Fabric IDs in semantic dataset definitions;
 - DEV/UAT/PROD environment binding profiles separated from semantic metadata;
 - Customer source-contract CI and wheel build;
 - exact framework integration test job;
 - tag-triggered Customer release workflow;
 - release-manifest and same-release DEV/UAT/PROD deployment-plan contract tests.
 
-## Historical runner validation
+## GitHub-hosted validation
 
-Before the repositories were made public, Customer run `33137660655` proved both Customer jobs could execute on the self-hosted runner named `Bear`, and the complete source-contract job passed. The exact-framework integration steps were skipped because the old private-repository token gate was absent.
+Customer run `33140847380` proved the public runner model:
 
-That Bear-specific topology is no longer part of the active design. GitHub-hosted runners are now the default for this public reference implementation.
+```text
+source-metadata-and-wheel       SUCCESS
+runner group                    GitHub Actions
+requested label                 ubuntu-latest
 
-## Exact framework integration state
+exact-framework-integration     FAILURE
+failing step                    Checkout exact framework release source
+runner group                    GitHub Actions
+requested label                 ubuntu-latest
+```
 
-The exact integration job no longer has an optional credential gate. It now requires the immutable framework tag `v0.3.0` to exist and then performs:
+The source job successfully validated metadata, compiled source, built the Customer wheel and uploaded the artifact.
+
+The exact integration failure is expected and truthful: framework tag `v0.3.0` does not yet exist. The workflow no longer hides this release dependency behind an optional secret or skipped steps.
+
+## Exact framework integration contract
+
+Once framework `v0.3.0` exists, the Customer gate must execute:
 
 ```text
 Checkout Customer
@@ -50,7 +63,7 @@ Build release manifest
 Validate DEV/UAT/PROD deployment plans
 ```
 
-Because framework `v0.3.0` has not yet been published, this remains the truthful blocking gate for merging Customer Phase 3.
+Customer PR #6 must remain open until all of these steps pass.
 
 ## Environment promotion proof
 
@@ -66,12 +79,10 @@ Previously completed local validation:
 - Customer wheel build: PASS;
 - workflow YAML parse: PASS.
 
-Historical remote validation:
+Current remote validation:
 
-- Customer source-contract job on Bear: PASS;
-- exact immutable framework integration: not yet proven.
-
-Current public/GitHub-hosted workflow validation must complete on the latest PR #6 head.
+- GitHub-hosted source-contract job: **PASS**;
+- exact immutable framework integration: **BLOCKED ON MISSING `v0.3.0` TAG/RELEASE**.
 
 ## Merge/release state
 
@@ -80,8 +91,7 @@ Customer Phase 3 PR #6 remains **OPEN**.
 It must not merge until:
 
 1. framework `v0.3.0` immutable tag/release exists;
-2. GitHub-hosted Customer source-contract CI passes;
-3. exact framework integration executes all steps and passes.
+2. exact framework integration executes all steps and passes.
 
 No Customer production release has been created.
 
@@ -98,7 +108,7 @@ No Customer production release has been created.
 ## Exact next implementation sequence
 
 1. Publish/prove framework `v0.3.0` on GitHub-hosted Actions.
-2. Let Customer PR #6 exact framework integration run fully and pass, then merge it.
+2. Rerun Customer PR #6; require exact framework integration to pass; merge it.
 3. Add a tiny multi-dataset Customer graph for dispatcher/failure-isolation testing.
 4. Add representative snapshot and CDC datasets only when the generic framework strategies exist.
 5. Add real Fabric Notebook/Pipeline items when the runtime adapter is ready.
