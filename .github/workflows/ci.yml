@@ -27,7 +27,7 @@ jobs:
         run: |
           python -m pip install "setuptools>=77"
           python -m pip wheel . --no-deps --no-build-isolation -w dist
-          sha256sum dist/*.whl | tee dist/SHA256SUMS
+          (cd dist && sha256sum *.whl | tee SHA256SUMS)
       - name: Upload Customer wheel
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
@@ -46,16 +46,20 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: "3.13"
-      - name: Checkout exact framework release source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          repository: ruizengalways/fabric-data-framework
-          ref: v0.3.0
-          path: framework
-          persist-credentials: false
-      - name: Install exact framework and Customer
+      - name: Download and verify exact framework release
         run: |
-          python -m pip install -e ./framework
+          mkdir framework-dist
+          BASE_URL="https://github.com/ruizengalways/fabric-data-framework/releases/download/v0.3.0"
+          curl --fail --location --retry 3 \
+            --output framework-dist/fabric_data_framework-0.3.0-py3-none-any.whl \
+            "${BASE_URL}/fabric_data_framework-0.3.0-py3-none-any.whl"
+          curl --fail --location --retry 3 \
+            --output framework-dist/SHA256SUMS \
+            "${BASE_URL}/SHA256SUMS"
+          (cd framework-dist && sha256sum -c SHA256SUMS)
+      - name: Install exact framework release and Customer
+        run: |
+          python -m pip install framework-dist/fabric_data_framework-0.3.0-py3-none-any.whl
           python -m pip install -e ".[dev]"
           python -m pip check
       - name: Run cross-package tests
