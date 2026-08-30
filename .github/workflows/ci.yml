@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  FRAMEWORK_NEXT_SHA: 148e02e3fff7861f238296e7554815a6fd49dd0a
+
 jobs:
   source-contract:
     name: source-metadata-and-wheel
@@ -83,3 +86,74 @@ jobs:
           fabric-framework deployment-plan --manifest release-manifest.json --bindings deploy/bindings.dev.json --output dev-plan.json
           fabric-framework deployment-plan --manifest release-manifest.json --bindings deploy/bindings.uat.json --output uat-plan.json
           fabric-framework deployment-plan --manifest release-manifest.json --bindings deploy/bindings.prod.json --output prod-plan.json
+
+  framework-next-project-contract:
+    name: framework-next-project-contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Customer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Checkout exact framework-next source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ruizengalways/fabric-data-framework
+          ref: ${{ env.FRAMEWORK_NEXT_SHA }}
+          path: framework-next
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.13"
+      - name: Install exact framework-next source only
+        run: |
+          python -m pip install ./framework-next
+          python -m pip check
+      - name: Validate Customer project contract
+        run: |
+          mkdir -p build
+          fabric-framework project-validate . \
+            --output build/customer-project-validation.json
+      - name: Build and validate 100-table Health project
+        run: |
+          fabric-framework project-init build/health-project --domain health
+          python scripts/scaffold_from_manifest.py \
+            --manifest examples/enterprise_100_table/health_100_tables.csv \
+            --output build/health-project/config/datasets \
+            --expect-count 100 \
+            --framework-next \
+            --semantic-selections-output build/health-project/config/capture/semantic-selections.json \
+            --write
+          fabric-framework project-validate build/health-project \
+            --output build/health-project-validation.json
+      - name: Assert Health workload contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("build/health-project-validation.json").read_text())
+          assert report["dataset_count"] == 100
+          assert report["semantic_selection_count"] == 100
+
+          def counts(name):
+              return {item["value"]: item["count"] for item in report[name]}
+
+          assert counts("capture_strategies") == {"CDC": 10, "FULL": 50, "WATERMARK": 40}
+          assert counts("apply_strategies") == {"REPLACE": 50, "SCD1": 20, "SCD2": 20, "UPSERT": 10}
+          assert counts("execution_groups") == {
+              "health_debezium": 10,
+              "health_full_refresh": 50,
+              "health_scd1": 20,
+              "health_scd2": 20,
+          }
+          assert counts("capture_engines") == {"EXTERNAL_CDC": 10, "SPARK": 90}
+          assert counts("apply_engines") == {"SPARK": 100}
+          PY
+      - name: Upload project validation reports
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: framework-next-project-validation-${{ github.sha }}
+          path: |
+            build/customer-project-validation.json
+            build/health-project-validation.json
+          if-no-files-found: error
+          retention-days: 14
