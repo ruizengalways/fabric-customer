@@ -1,8 +1,8 @@
 """Dependency-free consistency checks for canonical Customer documentation.
 
 The goal is not prose linting. This gate prevents version pins, framework-next SHA,
-project commands and proof labels from silently drifting across the files engineers use
-to bootstrap a new domain.
+project commands, proof labels and known stale implementation states from silently
+drifting across the files engineers use to bootstrap a new domain.
 """
 
 from __future__ import annotations
@@ -21,6 +21,12 @@ CANONICAL_DOCS = {
     "RUNBOOK": ROOT / "docs" / "runbooks" / "BUILD_NEW_DOMAIN_PROJECT.md",
     "EXAMPLE": ROOT / "examples" / "enterprise_100_table" / "README.md",
 }
+
+FORBIDDEN_STALE_PHRASES = (
+    "pending branch CI/merge",
+    "CI/PR VALIDATION REQUIRED BEFORE MERGE",
+    "intended CI gate for this change",
+)
 
 
 def _released_framework_version() -> str:
@@ -60,6 +66,9 @@ def main() -> int:
     for label, text in texts.items():
         _require(text, version, label=label)
         _require(text, "100", label=label)
+        for stale in FORBIDDEN_STALE_PHRASES:
+            if stale in text:
+                raise ValueError(f"{label} contains stale implementation state {stale!r}")
 
     for label in ("README", "BLUEPRINT", "STATUS", "RUNBOOK"):
         _require(texts[label], next_sha, label=label)
@@ -83,7 +92,7 @@ def main() -> int:
     print(
         "validated canonical docs "
         f"released_framework={version} framework_next_sha={next_sha} "
-        f"documents={len(texts)}"
+        f"documents={len(texts)} stale_phrases={len(FORBIDDEN_STALE_PHRASES)}"
     )
     return 0
 

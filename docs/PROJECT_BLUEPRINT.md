@@ -131,6 +131,15 @@ Compatibility-only framework-next baseline:
 
 CI checks out that exact SHA separately and uses it only to run static project-contract validation. It is not a public release dependency.
 
+The project-contract adoption was merged through Customer PR #8 at:
+
+```text
+Customer merge SHA: d05f06d3a2f8d9e31f4c7d9459c8e55df44460ff
+validation workflow: 33308362061
+```
+
+The validation passed the source/wheel lane, immutable v0.3.0 integration lane, and exact framework-next project-contract lane. The released lane recorded 8 Customer tests passing; the framework-next lane validated the Customer root and the generated 100-dataset Health project.
+
 When v0.4.0 is published, the Customer runtime/package import migration must happen in a single reviewed PR; do not create permanent dual-runtime compatibility code without a demonstrated need.
 
 ## 9. Current repo shape
@@ -151,6 +160,7 @@ fabric-customer/
   scripts/
     scaffold_from_manifest.py
     validate_metadata.py
+    validate_docs.py
   src/fabric_customer/
   tests/
   deploy/
@@ -172,7 +182,7 @@ Three proof lanes must remain distinct:
 
 ```text
 source-metadata-and-wheel
-  source-only validation + Customer wheel build
+  source-only validation + canonical documentation consistency + Customer wheel build
 
 exact-framework-integration
   immutable v0.3.0 release integration + Customer tests + release/deployment plans
@@ -181,9 +191,22 @@ framework-next-project-contract
   exact pinned 0.4-development SHA + Customer project-validate + 100-table Health project-validate
 ```
 
+PR #8 proved all three lanes can pass together without replacing the released dependency.
+
 A PASS in one lane does not automatically imply another proof class.
 
-## 11. Proof taxonomy
+## 11. Documentation consistency contract
+
+`scripts/validate_docs.py` is a source CI gate. It derives:
+
+- the exact released framework dependency from `pyproject.toml`;
+- the exact framework-next SHA from `.github/workflows/ci.yml`.
+
+It checks the canonical documentation set for consistent version/SHA references, project-init/project-validate guidance, Debezium/100-table terminology and required project source-of-truth files.
+
+This turns documentation synchronization into an executable contract while preserving human review for semantic accuracy.
+
+## 12. Proof taxonomy
 
 ```text
 manifest/config scale proof
@@ -199,13 +222,13 @@ capacity/performance proof
 
 This distinction is non-negotiable in code comments, PR descriptions and documentation.
 
-## 12. Delivery model
+## 13. Delivery model
 
 The same immutable domain Git SHA/config bundle/framework release moves DEV -> UAT/TEST -> PROD. Environment-local runtime state is not promoted.
 
 `deploy/bindings.*.json` resolves non-secret physical bindings outside semantic DatasetConfig truth. Secrets and raw credentials never belong in Git.
 
-## 13. Project bootstrap model
+## 14. Project bootstrap model
 
 For Framework v0.4+ the intended new-domain flow is:
 
@@ -225,18 +248,19 @@ install immutable framework wheel
 
 Until v0.4.0 is immutable, Customer CI exercises this flow only against the exact pinned framework-next SHA while the production lane stays on v0.3.0.
 
-## 14. Roadmap status
+## 15. Roadmap status
 
 - Phase 0 — COMPLETE: canonical architecture.
 - Phase 1 — COMPLETE dependency: framework foundation.
 - Phase 2 — COMPLETE: `crm.customer` executable vertical slice.
 - Phase 3 — COMPLETE: CI/package/release/deployment spine.
 - Enterprise bulk onboarding — COMPLETE as config/CI/runbook proof.
-- Framework-next project contract — IMPLEMENTED, pending branch CI/merge.
-- After immutable Framework v0.4.0 — upgrade Customer dependency/imports, then add the smallest representative multi-dataset dispatcher/failure-isolation graph.
+- Framework-next project contract — COMPLETE AND MERGED through PR #8.
+- Next gate — immutable Framework v0.4.0 release and exact Customer dependency/import migration.
+- After that — add the smallest representative multi-dataset dispatcher/failure-isolation graph.
 - Later — retry/backfill/replay, representative CDC/UPSERT/SNAPSHOT_DIFF, delete/late-arrival/schema-evolution policies, real Fabric evidence and controlled capacity ramp.
 
-## 15. Documentation obligation
+## 16. Documentation obligation
 
 Every coherent domain implementation updates and cross-checks:
 
