@@ -1,0 +1,88 @@
+from __future__ import annotations
+
+from collections import Counter
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+from fabric_data_framework.config import DatasetConfig
+
+ROOT = Path(__file__).resolve().parents[1]
+MANIFEST = ROOT / "examples" / "enterprise_100_table" / "health_100_tables.csv"
+SCRIPT = ROOT / "scripts" / "scaffold_from_manifest.py"
+
+
+def test_health_100_table_manifest_dry_run_is_non_mutating(tmp_path: Path) -> None:
+    output = tmp_path / "configs"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--manifest",
+            str(MANIFEST),
+            "--output",
+            str(output),
+            "--expect-count",
+            "100",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "datasets=100" in result.stdout
+    assert "CDC=10" in result.stdout
+    assert "FULL=50" in result.stdout
+    assert "WATERMARK=40" in result.stdout
+    assert "REPLACE=50" in result.stdout
+    assert "SCD1=20" in result.stdout
+    assert "SCD2=20" in result.stdout
+    assert "UPSERT=10" in result.stdout
+    assert "dry_run=true no_files_written=true" in result.stdout
+    assert not output.exists()
+
+
+def test_health_100_table_manifest_generates_framework_valid_configs(tmp_path: Path) -> None:
+    output = tmp_path / "configs"
+    subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--manifest",
+            str(MANIFEST),
+            "--output",
+            str(output),
+            "--expect-count",
+            "100",
+            "--write",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    paths = sorted(output.glob("*.json"))
+    assert len(paths) == 100
+
+    configs = [
+        DatasetConfig.model_validate(json.loads(path.read_text(encoding="utf-8")))
+        for path in paths
+    ]
+    assert len({config.dataset_id for config in configs}) == 100
+
+    capture = Counter(config.load.capture_strategy.value for config in configs)
+    apply = Counter(config.load.apply_strategy.value for config in configs)
+
+    assert capture == {"FULL": 50, "WATERMARK": 40, "CDC": 10}
+    assert apply == {"REPLACE": 50, "SCD2": 20, "SCD1": 20, "UPSERT": 10}
+
+    for config in configs:
+        if config.load.capture_strategy.value == "WATERMARK":
+            assert config.load.watermark is not None
+            assert config.load.watermark.tie_breaker
+        if config.load.apply_strategy.value == "SCD2":
+            assert config.load.business_key
+            assert config.load.merge_key
+        if config.load.apply_strategy.value in {"SCD1", "UPSERT"}:
+            assert config.load.merge_key
