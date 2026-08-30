@@ -24,6 +24,8 @@ jobs:
           python-version: "3.13"
       - name: Validate exact framework pin and metadata
         run: python scripts/validate_metadata.py
+      - name: Validate canonical documentation consistency
+        run: python scripts/validate_docs.py
       - name: Validate 100-table bulk onboarding manifest
         run: |
           python scripts/scaffold_from_manifest.py \
