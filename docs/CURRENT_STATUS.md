@@ -8,104 +8,156 @@ Last updated: 2026-08-30
 - Framework Phase 1 foundation: **SATISFIED**.
 - Customer Phase 2 CRM Customer WATERMARK/SCD2 vertical slice: **COMPLETE**.
 - Phase 3 enterprise delivery spine participation: **COMPLETE AND MERGED**.
-- Enterprise bulk-onboarding/domain-bootstrap reference: **IMPLEMENTED AS CONFIG/CI/RUNBOOK PROOF**.
-- Next runtime domain slice — multi-dataset dispatcher/failure isolation: **BLOCKED ONLY ON IMMUTABLE FRAMEWORK `v0.4.0` RELEASE**.
+- Enterprise bulk-onboarding/domain-bootstrap reference: **IMPLEMENTED**.
+- Framework 0.4-next project-contract adoption: **IMPLEMENTED; CI/PR VALIDATION REQUIRED BEFORE MERGE**.
+- Next runtime domain slice — multi-dataset dispatcher/failure isolation: **WAITING FOR IMMUTABLE FRAMEWORK `v0.4.0` RELEASE BEFORE CUSTOMER RUNTIME DEPENDENCY UPGRADE**.
 
-## Released runtime baseline
+## Released runtime baseline remains v0.3.0
 
-Customer currently exact-pins:
+Customer production/release packaging still exact-pins:
 
 ```text
 fabric-data-framework==0.3.0
 ```
 
-Framework source on `main` has advanced to source version `0.4.0`, but immutable GitHub Release `v0.4.0` is still pending. Customer must not switch to Framework `main` or an unpublished branch.
+The stable CI integration lane downloads the immutable v0.3.0 wheel, verifies `SHA256SUMS`, installs it, runs the Customer cross-package tests and builds same-release deployment plans.
 
-## Proven v0.3.0 delivery path
+This remains the only released framework dependency for Customer. Framework source `0.4.0` is still unreleased and must not be substituted into the release workflow.
 
-Customer Phase 3 was validated against the published Framework `v0.3.0` wheel.
+## Exact framework-next compatibility baseline
 
-The exact integration path proved:
+A separate CI lane now targets the exact framework development SHA:
 
 ```text
-GitHub Release v0.3.0
-  -> download fabric_data_framework-0.3.0-py3-none-any.whl
-  -> download SHA256SUMS
-  -> sha256sum -c SHA256SUMS
-  -> install released wheel
-  -> install Customer
-  -> cross-package tests
-  -> release manifest
-  -> DEV/UAT/PROD deployment-plan validation
+148e02e3fff7861f238296e7554815a6fd49dd0a
 ```
 
-Current delivery content includes:
+This SHA contains the framework-owned non-destructive `project-init` and static `project-validate` contracts. Customer CI checks that exact source snapshot without changing `pyproject.toml`.
 
-- exact framework dependency and released-wheel integration;
-- source metadata validator rejecting physical Fabric IDs in semantic dataset definitions;
-- DEV/UAT/PROD environment binding profiles separated from semantic metadata;
-- Customer source-contract CI and wheel build;
-- tag-triggered Customer release workflow;
-- framework release SHA-256 verification before installation;
-- release-manifest and same-release DEV/UAT/PROD deployment-plan contract tests.
+The lane proves source compatibility only:
 
-## Enterprise 100-table onboarding proof
+```text
+checkout Customer
+checkout exact framework-next SHA
+install framework-next source
+project-validate Customer root
+project-init temporary Health project
+generate 100 DatasetConfig + 100 semantic selections
+project-validate temporary Health project
+retain both JSON validation reports
+```
 
-The repo now contains a scale fixture and deterministic scaffold path for the realistic new-project scenario:
+It does **not** establish an immutable framework release or live Fabric evidence.
+
+## Customer project contract
+
+The Customer repository now declares:
+
+```text
+fabric-project.json
+config/datasets/crm.customer.json
+config/capture/semantic-selections.json
+```
+
+The existing `deploy/` folder remains the non-secret environment binding owner, and `fabric-project.json` points `environment_binding_dir` to that existing directory so adoption does not duplicate environment binding sources of truth.
+
+Framework-next `project-validate .` is expected to fail closed on:
+
+- invalid/duplicate DatasetConfig values;
+- missing/unknown dataset dependencies;
+- dependency cycles;
+- unsupported capture/apply engine capability combinations;
+- missing or unknown semantic selections;
+- semantic pattern/capture mismatches;
+- semantic history/delete overclaims.
+
+A PASS is static project validation only.
+
+## Enterprise 100-table Health proof
+
+The fixture remains:
 
 ```text
 50  FULL      -> REPLACE
 20  WATERMARK -> SCD2
 20  WATERMARK -> SCD1
-10  CDC       -> UPSERT (Debezium example)
+10  CDC       -> UPSERT
 ```
 
-Artifacts:
+The default generator mode remains compatible with released Framework v0.3.0.
+
+The new `--framework-next` mode additionally:
+
+- resolves one semantic selection for every dataset;
+- writes `semantic-selections.json` when explicitly requested;
+- makes all ten declared Debezium datasets explicit `EXTERNAL_CDC` capture operations;
+- sets Debezium `progress_owner=EXTERNAL`;
+- pins `capability_profile=debezium_kafka_v1`;
+- keeps final target apply on framework Spark authority.
+
+Expected exact framework-next project summary:
 
 ```text
-examples/enterprise_100_table/health_100_tables.csv
-scripts/scaffold_from_manifest.py
-tests/test_bulk_onboarding.py
-docs/runbooks/BUILD_NEW_DOMAIN_PROJECT.md
+datasets: 100
+semantic selections: 100
+capture strategies: FULL=50, WATERMARK=40, CDC=10
+apply strategies: REPLACE=50, SCD1=20, SCD2=20, UPSERT=10
+execution groups: health_full_refresh=50, health_scd2=20, health_scd1=20, health_debezium=10
+capture engines: SPARK=90, EXTERNAL_CDC=10
+apply engines: SPARK=100
 ```
 
-The scaffold supports a non-mutating local dry-run and explicit `--write` generation of framework `DatasetConfig` JSON files. CI validates the 100-row manifest without requiring framework dependencies; the cross-package test then generates all 100 configs and validates them against the exact released framework v0.3.0 schema.
+This closes the previous documentation/config mismatch where the fixture called the CDC rows “Debezium” while the generated DatasetConfig contained no Debezium capability profile.
 
-This is deliberately a **configuration/onboarding scale proof**, not 100 fake runtime integrations. The repository still uses small representative runtime fixtures to prove algorithms and failure semantics.
+## Proof taxonomy
 
-## Repository boundary rule
+Keep these claims separate:
 
 ```text
-Framework owns HOW.
-Domain repo owns WHAT.
+v0.3 released-wheel integration PASS
+!=
+0.4-next exact-SHA static project PASS
+!=
+real Fabric provider/runtime PASS
+!=
+100-table capacity/performance PASS
 ```
 
-Do not split a domain repository merely because some datasets use FULL, WATERMARK, CDC, SCD1 or SCD2. Split only for a real ownership, security/compliance, data-product or independent release boundary.
-
-## Environment promotion proof
-
-`deploy/bindings.dev.json`, `bindings.uat.json` and `bindings.prod.json` contain non-secret reference environment bindings only. They are outside the semantic release hash. The same immutable Customer release identity is combined with different environment bindings for DEV/UAT/PROD, while runtime state such as watermarks, leases, run history, quarantine/reprocess records and runtime overrides remains environment-local.
+The 100-table fixture is still a configuration/onboarding scale proof. Runtime correctness remains proven with small representative fixtures, and real provider/capacity claims require approved environment evidence.
 
 ## Current external boundary
 
-- No real Fabric workspace deployment has executed.
-- Checked-in bindings are reference values, not company resource IDs.
-- No Fabric Pipeline/Notebook item exists yet.
-- No actual DEV/UAT/PROD control-plane store is bound.
+- No real Fabric workspace deployment has executed for this Customer repository.
+- Checked-in bindings are reference values, not company production resource IDs.
+- No production Pipeline/Notebook/Spark Job Definition is proven here.
+- No actual DEV/UAT/PROD production control-plane store is bound.
 - No Customer production release has been created.
-- The Debezium rows in the 100-table fixture express onboarding semantics; they are not proof of a live Debezium-to-Fabric integration.
-
-`docs/runbooks/BUILD_NEW_DOMAIN_PROJECT.md` now defines the step-by-step procedure for performing the real jumpbox -> GitHub -> Fabric DEV -> TEST -> PROD proof without overstating current evidence.
+- No live Debezium/Kafka integration evidence has been retained.
+- No 100-table concurrency/capacity benchmark has been executed.
 
 ## Exact next implementation sequence
 
-1. Publish/prove Framework `v0.4.0` through the existing GitHub Actions UI release workflow.
-2. Upgrade Customer exact framework pin/integration to `0.4.0`.
-3. Add the smallest representative Customer multi-dataset dispatcher/failure-isolation scenario.
-4. Continue with retry/backfill/replay.
-5. Add representative SNAPSHOT_DIFF and CDC/UPSERT runtime scenarios.
-6. Add delete/late-arrival/schema-evolution correctness policies.
-7. Execute real Fabric Environment/Notebook/Pipeline deployment integration following the runbook and retain evidence.
-8. Ramp representative workload/concurrency before claiming 100-table production-scale support.
+1. Complete CI and merge the framework-next project-contract adoption.
+2. Keep the v0.3.0 released dependency lane green until Framework v0.4.0 is actually published.
+3. Publish/prove Framework v0.4.0 through the framework release process and retained exact-release evidence gates.
+4. Upgrade Customer `pyproject.toml`, release CI and canonical Python imports to the immutable v0.4.0 release in one migration PR.
+5. Add the smallest representative multi-dataset dispatcher/failure-isolation scenario.
+6. Continue with retry/backfill/replay and representative CDC/UPSERT/SNAPSHOT_DIFF runtime slices.
+7. Execute the real Fabric DEV integration sequence in `docs/runbooks/BUILD_NEW_DOMAIN_PROJECT.md` and retain evidence.
+8. Ramp controlled concurrency before claiming 100-table production-scale support.
 
 Do not add dozens of fake runtime tables. Use the bulk manifest for onboarding/config scale and small representative datasets for reusable runtime correctness proof.
+
+## Documentation check obligation
+
+Every coherent implementation must update and cross-check at least:
+
+```text
+README.md
+docs/PROJECT_BLUEPRINT.md
+docs/CURRENT_STATUS.md
+docs/runbooks/BUILD_NEW_DOMAIN_PROJECT.md
+examples/enterprise_100_table/README.md
+```
+
+Commands, framework pins, evidence labels and repo-boundary guidance must agree across those files before merge.
