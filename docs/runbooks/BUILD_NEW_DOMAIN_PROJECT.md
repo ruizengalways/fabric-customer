@@ -37,16 +37,7 @@ For the Health example, the default is:
 fabric-health
 ```
 
-Do **not** create:
-
-```text
-fabric-health-full
-fabric-health-scd1
-fabric-health-scd2
-fabric-health-debezium
-```
-
-merely because the datasets use different technical patterns.
+Do **not** create separate `full`, `scd1`, `scd2`, and `debezium` repositories merely because the datasets use different technical patterns.
 
 Split only for a real boundary such as:
 
@@ -80,7 +71,7 @@ The domain repository owns WHAT:
 `fabric-data-framework` owns HOW:
 
 - DatasetConfig schema;
-- project-init/project-validate;
+- `project-init` / `project-validate`;
 - capability resolution;
 - generic capture/runtime semantics;
 - Bronze contracts;
@@ -93,17 +84,17 @@ Do not copy generic framework source into a customer/domain repository.
 
 ---
 
-## 3. Understand the two framework lanes currently used by this reference
+## 3. Current framework lanes in this reference
 
 ### Released production lane
 
-`fabric-customer` still exact-pins the immutable public release:
+`fabric-customer` exact-pins:
 
 ```text
 fabric-data-framework==0.3.0
 ```
 
-This is the current released runtime/package baseline. CI downloads the wheel and `SHA256SUMS`, verifies the checksum and runs the Customer cross-package tests.
+CI downloads the immutable v0.3.0 wheel and `SHA256SUMS`, verifies the checksum, installs Customer, runs the cross-package tests and builds the release/deployment-plan contracts.
 
 ### Exact framework-next compatibility lane
 
@@ -113,11 +104,20 @@ A separate CI job checks the exact framework development SHA:
 148e02e3fff7861f238296e7554815a6fd49dd0a
 ```
 
-This lane exists so the domain repo can adopt/test the forthcoming 0.4 project contract before the release is published.
+That source snapshot contains the framework-owned project bootstrap and project dry-run contracts used here before v0.4.0 is published.
 
-It is **not** a production dependency. Do not put an unpublished framework Git SHA into the production Fabric Environment merely because this compatibility job passes.
+The adoption was merged through Customer PR #8:
 
-When v0.4.0 becomes immutable, replace the two-lane transition with one exact released v0.4.0 dependency through a reviewed migration PR.
+```text
+Customer merge SHA: d05f06d3a2f8d9e31f4c7d9459c8e55df44460ff
+validation workflow: 33308362061
+```
+
+The PR validation proved all three Customer CI jobs green. The released lane recorded **8 tests passed**. The framework-next lane validated the Customer project and the generated 100-dataset Health project.
+
+This exact-SHA lane is compatibility evidence only. It is **not** an immutable public framework release and must not silently replace the production dependency.
+
+When v0.4.0 becomes immutable, replace the transition with one exact released v0.4.0 dependency through a reviewed migration PR.
 
 ---
 
@@ -128,7 +128,7 @@ Required local tools:
 ```text
 Git
 Python 3.11+
-company-approved credentials for the Git repository/package registry
+company-approved credentials for Git/package access
 ```
 
 Create an isolated environment:
@@ -145,13 +145,13 @@ source .venv/bin/activate
 python -m pip install --upgrade pip setuptools
 ```
 
-A Conda environment is also acceptable if that is the corporate standard.
+A company-managed Conda environment is also acceptable.
 
-The framework CLI is intended to run here, in CI, or in an approved operator environment. You do not need an interactive shell inside Fabric for normal scheduled execution.
+The framework CLI runs on a developer machine, jumpbox, CI runner or approved operator environment. Normal scheduled Fabric execution does not require an interactive Fabric terminal.
 
 ---
 
-## 5. Preferred bootstrap once Framework v0.4.0 is released
+## 5. Preferred bootstrap after Framework v0.4.0 is released
 
 After installing the immutable approved framework wheel:
 
@@ -179,34 +179,25 @@ fabric-health/
 └─ tests/
 ```
 
-`project-init` is deliberately non-destructive. It does not guess:
+`project-init` is deliberately non-destructive. It does not guess PKs, watermarks, delete visibility, history fidelity, SCD strategy, provider capability, physical Fabric IDs or secrets.
 
-- PK/business key;
-- watermark safety;
-- delete visibility;
-- history fidelity;
-- SCD1/SCD2;
-- provider capability;
-- Fabric workspace/item IDs;
-- credentials/secrets.
-
-For an existing corporate repo, the intentional adoption command is:
+For an existing corporate repo:
 
 ```bash
 fabric-framework project-init . --domain health --allow-existing
 ```
 
-Existing files are never overwritten. Review the generated/adopted layout before committing.
+Existing files are never overwritten. Review the adopted layout before committing.
 
 ---
 
-## 6. What to do today before v0.4.0 is released
+## 6. What to do before v0.4.0 is published
 
 Do **not** replace the released v0.3.0 dependency with Framework `main` for production.
 
 Use `fabric-customer` as the reference/template and let CI perform the exact-SHA framework-next compatibility proof.
 
-A typical corporate bootstrap is:
+Typical bootstrap:
 
 ```bash
 git clone https://github.com/ruizengalways/fabric-customer.git fabric-health
@@ -218,9 +209,9 @@ git remote add origin <company-github-url>/fabric-health.git
 git checkout -b bootstrap/health
 ```
 
-Then rename Customer package/domain identities before any real release.
+Rename Customer package/domain identities before any real release.
 
-The reference repo already contains `fabric-project.json`, so the exact framework-next CI job can run `project-validate` without changing the production dependency pin.
+The reference repo already contains `fabric-project.json`, so the framework-next CI job can run `project-validate` without changing the production framework dependency pin.
 
 ---
 
@@ -296,8 +287,6 @@ This is source-controlled provider intent, not live connectivity proof.
 
 ## 9. Run the dependency-free intake dry run first
 
-This command works without the framework package:
-
 ```bash
 python scripts/scaffold_from_manifest.py \
   --manifest examples/enterprise_100_table/health_100_tables.csv \
@@ -305,7 +294,7 @@ python scripts/scaffold_from_manifest.py \
   --expect-count 100
 ```
 
-Expected high-level result:
+Expected result:
 
 ```text
 datasets=100
@@ -315,7 +304,7 @@ execution_groups: health_debezium=10, health_full_refresh=50, health_scd1=20, he
 dry_run=true no_files_written=true
 ```
 
-This validates intake shape/key/watermark requirements. It does not validate the full framework capability/semantic contract.
+This validates intake shape/key/watermark requirements. It does not validate the complete framework semantic/capability contract.
 
 ---
 
@@ -331,15 +320,15 @@ python scripts/scaffold_from_manifest.py \
   --write
 ```
 
-This keeps the existing v0.3.0 release lane stable during the transition.
+This keeps the v0.3.0 release lane stable during the transition.
 
-Do not use this compatibility fact as a reason to postpone reviewing source semantics.
+Do not blindly accept generated values. Every real dataset still needs source-owner/data-engineer review.
 
 ---
 
 ## 11. Exercise the exact 0.4-next project contract
 
-This is what the new CI lane performs against the exact pinned framework SHA.
+This is the CI-proven compatibility flow for framework SHA `148e02e3fff7861f238296e7554815a6fd49dd0a`.
 
 Create an isolated temporary project:
 
@@ -347,7 +336,7 @@ Create an isolated temporary project:
 fabric-framework project-init build/health-project --domain health
 ```
 
-Generate the 100 DatasetConfig files plus semantic selections:
+Generate DatasetConfig and semantic selections:
 
 ```bash
 python scripts/scaffold_from_manifest.py \
@@ -366,24 +355,25 @@ fabric-framework project-validate build/health-project \
   --output build/health-project-validation.json
 ```
 
-Expected contract:
+PR #8 validated this exact workload contract:
 
 ```text
 dataset_count = 100
 semantic_selection_count = 100
 capture strategies = FULL 50 / WATERMARK 40 / CDC 10
 apply strategies = REPLACE 50 / SCD2 20 / SCD1 20 / UPSERT 10
+execution groups = health_full_refresh 50 / health_scd2 20 / health_scd1 20 / health_debezium 10
 capture engines = SPARK 90 / EXTERNAL_CDC 10
 apply engines = SPARK 100
 ```
 
-The 90 non-Debezium datasets currently use framework AUTO capture resolution, which conservatively resolves to Spark in the current 0.4 development profile. A real domain can later choose explicit certified Fabric capture engines per dataset where appropriate.
+The 90 non-Debezium datasets use framework AUTO capture resolution, which conservatively resolves to Spark in the pinned 0.4 development profile. A real domain can later select explicit certified Fabric capture engines per dataset where appropriate.
 
 ---
 
-## 12. Why the ten Debezium configs are now different
+## 12. Debezium contract
 
-In framework-next mode, a manifest row that explicitly says `source_system=debezium` emits:
+In framework-next mode, a manifest row declaring `source_system=debezium` emits:
 
 ```json
 {
@@ -396,24 +386,15 @@ In framework-next mode, a manifest row that explicitly says `source_system=debez
 }
 ```
 
-and the semantic selection is:
+Its semantic selection is:
 
 ```text
 FULL_CHANGES_EVENT
 ```
 
-This fixes the previous reference gap where the documentation called the rows Debezium but the generated config only declared generic `CDC`.
+This fixes the prior reference gap where the documentation called those rows Debezium but the generated config only declared generic `CDC`.
 
-It still does not prove:
-
-- real Kafka topic mapping;
-- partition/offset order;
-- tombstone/delete behavior;
-- replay after outage;
-- credential/network access;
-- live Fabric target application.
-
-Those are integration evidence tasks.
+It still does not prove real topic mapping, partition/offset order, tombstone/delete behavior, replay after outage, credential/network access or live Fabric target application.
 
 ---
 
@@ -435,26 +416,26 @@ WATERMARK            -> WATERMARK_CURRENT
 Debezium CDC         -> FULL_CHANGES_EVENT
 ```
 
-Generated defaults are a bootstrap aid, not authority. The source owner/data engineer must review and change an incorrect semantic pattern before production promotion.
+Generated defaults are a bootstrap aid, not authority. Review them before production promotion.
 
-Important examples:
+Important limits:
 
 - WATERMARK cannot discover hard deletes that have already disappeared unless the source provides a delete signal.
-- SCD2 does not magically reconstruct source changes that capture never observed.
+- SCD2 cannot reconstruct source changes capture never observed.
 - Full snapshot current state does not expose every intermediate source change.
 
 ---
 
 ## 14. Run `project-validate` before Git push
 
-For a v0.4+ project, the normal developer gate becomes:
+For a v0.4+ project, the normal developer gate is:
 
 ```bash
 fabric-framework project-validate . \
   --output build/project-validation.json
 ```
 
-It checks the whole repo as one contract, including:
+It checks the whole repository contract:
 
 ```text
 DatasetConfig parsing/uniqueness
@@ -469,24 +450,15 @@ history/delete overclaim guardrails
 workload summary
 ```
 
-This is the project-level dry run we want before GitHub.
-
 A PASS means source-controlled static validity. It is not a Fabric deployment certification.
 
 ---
 
-## 15. Keep customer/domain tests separate from project validation
+## 15. Keep domain tests separate from project validation
 
 Project validation does not replace domain tests.
 
-Run domain tests for:
-
-- mappings;
-- DQ rules;
-- domain extensions;
-- representative runtime slices;
-- fixtures;
-- deployment assumptions.
+Run tests for mappings, DQ rules, domain extensions, representative runtime slices, fixtures and deployment assumptions.
 
 Current Customer v0.3 release lane:
 
@@ -495,11 +467,39 @@ python scripts/validate_metadata.py
 pytest -q
 ```
 
+PR #8 recorded:
+
+```text
+8 passed
+```
+
 Once Customer upgrades to immutable v0.4.0, canonical Python imports/tests must be migrated in one reviewed dependency-upgrade PR.
 
 ---
 
-## 16. GitHub PR and CI gates
+## 16. Documentation is also a CI contract
+
+Run:
+
+```bash
+python scripts/validate_docs.py
+```
+
+The validator derives the released framework version from `pyproject.toml` and the exact framework-next SHA from `.github/workflows/ci.yml`, then checks the canonical documentation set for agreement.
+
+PR #8 recorded:
+
+```text
+released_framework=0.3.0
+framework_next_sha=148e02e3fff7861f238296e7554815a6fd49dd0a
+documents=5
+```
+
+This protects against common drift such as changing the package pin but forgetting the runbook/status/README. Human review is still required for semantic accuracy.
+
+---
+
+## 17. GitHub PR and CI gates
 
 Normal flow:
 
@@ -509,6 +509,7 @@ local/jumpbox
   -> DatasetConfig + semantic selections
   -> project-validate
   -> domain tests
+  -> documentation validation
   -> git commit
   -> push feature branch
   -> PR
@@ -516,11 +517,12 @@ local/jumpbox
   -> merge
 ```
 
-The current reference CI deliberately has three jobs:
+The reference CI has three distinct jobs:
 
 ### `source-metadata-and-wheel`
 
-- source-only metadata validation;
+- exact released dependency/source metadata validation;
+- canonical documentation consistency;
 - 100-row intake dry run;
 - source compile;
 - Customer wheel build.
@@ -542,13 +544,13 @@ The current reference CI deliberately has three jobs:
 - Health `project-validate`;
 - retained JSON validation reports.
 
-Do not merge these evidence labels in documentation or release notes.
+Do not collapse these evidence labels in documentation or release notes.
 
 ---
 
-## 17. Environment bindings and secrets
+## 18. Environment bindings and secrets
 
-Semantic DatasetConfig files contain logical references such as:
+Semantic DatasetConfig files use logical references such as:
 
 ```json
 {
@@ -556,7 +558,7 @@ Semantic DatasetConfig files contain logical references such as:
 }
 ```
 
-Physical workspace/item IDs and non-secret binding values are environment-local deployment configuration.
+Physical workspace/item IDs and non-secret bindings are environment-local deployment configuration.
 
 Secrets must remain outside Git:
 
@@ -570,7 +572,7 @@ raw connection strings
 
 Prefer approved managed/workspace identity and corporate secret management.
 
-This reference keeps legacy non-secret bindings under:
+This reference keeps existing non-secret bindings under:
 
 ```text
 deploy/bindings.dev.json
@@ -578,11 +580,11 @@ deploy/bindings.uat.json
 deploy/bindings.prod.json
 ```
 
-`fabric-project.json` points `environment_binding_dir` to `deploy/` to avoid creating a second binding source of truth during adoption. New repos created by project-init can use the framework default `config/environments/` layout.
+`fabric-project.json` points `environment_binding_dir` to `deploy/` to avoid creating a second source of truth during adoption. New project-init repositories can use the framework default `config/environments/` layout.
 
 ---
 
-## 18. Build immutable release artifacts
+## 19. Build immutable release artifacts
 
 Do not rebuild a different package for each environment.
 
@@ -607,7 +609,7 @@ When v0.4.0 becomes the Customer runtime dependency, change the framework versio
 
 ---
 
-## 19. Fabric DEV setup
+## 20. Fabric DEV setup
 
 After source/CI gates are green:
 
@@ -627,7 +629,7 @@ Do not put generic framework algorithms into 100 copied notebooks.
 
 ---
 
-## 20. Thin-driver runtime shape
+## 21. Thin-driver runtime shape
 
 Target design:
 
@@ -658,15 +660,15 @@ health_scd1           20
 health_debezium       10
 ```
 
-They are not separate repos.
+They are not separate repositories.
 
 ---
 
-## 21. Prove representative live paths before enabling all 100
+## 22. Prove representative live paths before enabling all 100
 
-Do not switch all 100 on during the first Fabric test.
+Do not switch all 100 datasets on during the first Fabric proof.
 
-Recommended DEV proof order:
+Recommended DEV sequence:
 
 1. one FULL + REPLACE dataset;
 2. one WATERMARK + SCD1 dataset;
@@ -677,13 +679,13 @@ Recommended DEV proof order:
 7. delete behavior where applicable;
 8. small mixed execution group;
 9. controlled concurrency increase;
-10. only then enable the remaining metadata-equivalent datasets.
+10. only then enable remaining metadata-equivalent datasets.
 
 Retain exact evidence for each representative path.
 
 ---
 
-## 22. Debezium live evidence checklist
+## 23. Debezium live evidence checklist
 
 For a real Debezium dataset prove:
 
@@ -707,7 +709,7 @@ The source-controlled capability profile is necessary, but it is not sufficient 
 
 ---
 
-## 23. DEV -> TEST/UAT -> PROD promotion
+## 24. DEV -> TEST/UAT -> PROD promotion
 
 Promotion model:
 
@@ -725,11 +727,11 @@ PR + CI green
 
 Promote the same tested release identity. Do not build a new PROD-only wheel.
 
-Runtime watermarks/run history/quarantine/leases/reprocess state remain environment-local.
+Runtime watermarks, run history, quarantine, leases and reprocess state remain environment-local.
 
 ---
 
-## 24. Go-live checklist
+## 25. Go-live checklist
 
 Before production enablement confirm:
 
@@ -753,18 +755,29 @@ Before production enablement confirm:
 
 ---
 
-## 25. Evidence boundary of this reference repository
+## 26. Evidence boundary of this reference repository
 
 As of 2026-08-30:
 
 ```text
-v0.3.0 released-wheel integration        proven in CI
-100-row manifest/config generation        proven in CI
-exact 0.4-next project contract           intended CI gate for this change
-real Customer Fabric workspace execution  not yet retained
-live Debezium/Kafka execution              not yet retained
-100-table runtime capacity                 not yet retained
-production release                         not yet created
+v0.3.0 released-wheel integration         PROVEN IN CI
+100-row manifest/config generation         PROVEN IN CI
+canonical documentation consistency        PROVEN IN CI
+exact 0.4-next Customer project contract   PROVEN IN CI FOR PINNED SHA
+exact 0.4-next Health 100-table contract   PROVEN IN CI FOR PINNED SHA
+real Customer Fabric workspace execution   NOT YET RETAINED
+live Debezium/Kafka execution               NOT YET RETAINED
+100-table runtime capacity                  NOT YET RETAINED
+Customer production release                NOT YET CREATED
+```
+
+Exact source/CI baseline for the 0.4-next adoption:
+
+```text
+Customer PR #8
+Customer merge SHA d05f06d3a2f8d9e31f4c7d9459c8e55df44460ff
+workflow 33308362061
+framework-next SHA 148e02e3fff7861f238296e7554815a6fd49dd0a
 ```
 
 Do not cite this runbook itself as evidence that a live integration happened.
