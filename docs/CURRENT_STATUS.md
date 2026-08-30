@@ -1,6 +1,6 @@
 # Current Status — fabric-customer
 
-Last updated: 2026-08-28
+Last updated: 2026-08-30
 
 ## Current phase
 
@@ -8,18 +8,22 @@ Last updated: 2026-08-28
 - Framework Phase 1 foundation: **SATISFIED**.
 - Customer Phase 2 CRM Customer WATERMARK/SCD2 vertical slice: **COMPLETE**.
 - Phase 3 enterprise delivery spine participation: **COMPLETE AND MERGED**.
-- Next domain slice — multi-dataset dispatcher/failure isolation: **BLOCKED ONLY ON IMMUTABLE FRAMEWORK `v0.4.0` RELEASE**.
+- Enterprise bulk-onboarding/domain-bootstrap reference: **IMPLEMENTED AS CONFIG/CI/RUNBOOK PROOF**.
+- Next runtime domain slice — multi-dataset dispatcher/failure isolation: **BLOCKED ONLY ON IMMUTABLE FRAMEWORK `v0.4.0` RELEASE**.
 
-## Last completed step
+## Released runtime baseline
 
-Customer Phase 3 PR #6 was fully validated against the published Framework `v0.3.0` wheel and squash-merged as commit `32f6cabc093541270b271ae37754ba8fe1e9544b`.
-
-Final PR CI run `33157883463` passed both jobs:
+Customer currently exact-pins:
 
 ```text
-source-metadata-and-wheel     SUCCESS
-exact-framework-integration   SUCCESS
+fabric-data-framework==0.3.0
 ```
+
+Framework source on `main` has advanced to source version `0.4.0`, but immutable GitHub Release `v0.4.0` is still pending. Customer must not switch to Framework `main` or an unpublished branch.
+
+## Proven v0.3.0 delivery path
+
+Customer Phase 3 was validated against the published Framework `v0.3.0` wheel.
 
 The exact integration path proved:
 
@@ -35,19 +39,7 @@ GitHub Release v0.3.0
   -> DEV/UAT/PROD deployment-plan validation
 ```
 
-## Current framework dependency
-
-Customer currently exact-pins:
-
-```text
-fabric-data-framework==0.3.0
-```
-
-Framework Phase 4 dispatcher has now been merged to Framework `main` as source version `0.4.0`, but immutable GitHub Release `v0.4.0` is still pending.
-
-Customer must not switch to Framework `main` or an unpublished branch. After `v0.4.0` is published, Customer will upgrade the exact pin to `0.4.0` and its CI will download/verify/install that released wheel before running the new dispatcher scenario.
-
-## Phase 3 Customer content
+Current delivery content includes:
 
 - exact framework dependency and released-wheel integration;
 - source metadata validator rejecting physical Fabric IDs in semantic dataset definitions;
@@ -57,29 +49,38 @@ Customer must not switch to Framework `main` or an unpublished branch. After `v0
 - framework release SHA-256 verification before installation;
 - release-manifest and same-release DEV/UAT/PROD deployment-plan contract tests.
 
-## Next domain proof
+## Enterprise 100-table onboarding proof
 
-Once Framework `v0.4.0` exists, add the smallest representative Customer graph needed to prove generic orchestration behaviour. Do not add dozens of fake tables.
-
-Target scenario:
+The repo now contains a scale fixture and deterministic scaffold path for the realistic new-project scenario:
 
 ```text
-customer      SUCCESS
-address       SUCCESS
-contact       FAILED (non-critical)
-preference    SUCCESS
-Pipeline      PARTIAL_SUCCESS
+50  FULL      -> REPLACE
+20  WATERMARK -> SCD2
+20  WATERMARK -> SCD1
+10  CDC       -> UPSERT (Debezium example)
 ```
 
-And dependency isolation:
+Artifacts:
 
 ```text
-customer FAILED
-  -> customer_detail depends on customer -> BLOCKED
-preference unrelated -> SUCCESS
+examples/enterprise_100_table/health_100_tables.csv
+scripts/scaffold_from_manifest.py
+tests/test_bulk_onboarding.py
+docs/runbooks/BUILD_NEW_DOMAIN_PROJECT.md
 ```
 
-The Customer repo should supply domain metadata/fixtures/executor resolution only. It must not reimplement dispatcher algorithms.
+The scaffold supports a non-mutating local dry-run and explicit `--write` generation of framework `DatasetConfig` JSON files. CI validates the 100-row manifest without requiring framework dependencies; the cross-package test then generates all 100 configs and validates them against the exact released framework v0.3.0 schema.
+
+This is deliberately a **configuration/onboarding scale proof**, not 100 fake runtime integrations. The repository still uses small representative runtime fixtures to prove algorithms and failure semantics.
+
+## Repository boundary rule
+
+```text
+Framework owns HOW.
+Domain repo owns WHAT.
+```
+
+Do not split a domain repository merely because some datasets use FULL, WATERMARK, CDC, SCD1 or SCD2. Split only for a real ownership, security/compliance, data-product or independent release boundary.
 
 ## Environment promotion proof
 
@@ -92,15 +93,19 @@ The Customer repo should supply domain metadata/fixtures/executor resolution onl
 - No Fabric Pipeline/Notebook item exists yet.
 - No actual DEV/UAT/PROD control-plane store is bound.
 - No Customer production release has been created.
+- The Debezium rows in the 100-table fixture express onboarding semantics; they are not proof of a live Debezium-to-Fabric integration.
+
+`docs/runbooks/BUILD_NEW_DOMAIN_PROJECT.md` now defines the step-by-step procedure for performing the real jumpbox -> GitHub -> Fabric DEV -> TEST -> PROD proof without overstating current evidence.
 
 ## Exact next implementation sequence
 
 1. Publish/prove Framework `v0.4.0` through the existing GitHub Actions UI release workflow.
 2. Upgrade Customer exact framework pin/integration to `0.4.0`.
-3. Add the tiny Customer multi-dataset dispatcher/failure-isolation scenario.
+3. Add the smallest representative Customer multi-dataset dispatcher/failure-isolation scenario.
 4. Continue with retry/backfill/replay.
-5. Add representative SNAPSHOT_DIFF and CDC/UPSERT scenarios.
+5. Add representative SNAPSHOT_DIFF and CDC/UPSERT runtime scenarios.
 6. Add delete/late-arrival/schema-evolution correctness policies.
-7. Add real Fabric Environment/Notebook/Pipeline deployment integration.
+7. Execute real Fabric Environment/Notebook/Pipeline deployment integration following the runbook and retain evidence.
+8. Ramp representative workload/concurrency before claiming 100-table production-scale support.
 
-Do not add dozens of fake tables. A small representative graph should prove the reusable platform behaviour.
+Do not add dozens of fake runtime tables. Use the bulk manifest for onboarding/config scale and small representative datasets for reusable runtime correctness proof.

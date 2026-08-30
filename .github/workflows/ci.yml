@@ -21,6 +21,12 @@ jobs:
           python-version: "3.13"
       - name: Validate exact framework pin and metadata
         run: python scripts/validate_metadata.py
+      - name: Validate 100-table bulk onboarding manifest
+        run: |
+          python scripts/scaffold_from_manifest.py \
+            --manifest examples/enterprise_100_table/health_100_tables.csv \
+            --output build/health-manifest-preview \
+            --expect-count 100
       - name: Compile Customer source
         run: python -m compileall -q src scripts tests
       - name: Build Customer wheel without resolving framework dependency
