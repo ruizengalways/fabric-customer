@@ -3,6 +3,10 @@
 This is domain-repository tooling, not the Fabric runtime. It intentionally uses only the
 Python standard library so a jumpbox can validate an intake manifest before the framework
 wheel or Fabric access is available.
+
+The default output remains compatible with the released framework v0.3.0 contract.
+``--framework-next`` adds source-controlled fields needed to exercise the exact pinned
+0.4-development project contract in CI. It does not change the production dependency pin.
 """
 
 from __future__ import annotations
@@ -17,6 +21,22 @@ import sys
 SUPPORTED_CAPTURE = {"FULL", "WATERMARK", "CDC", "MIRROR", "STREAM", "SNAPSHOT"}
 SUPPORTED_APPLY = {"APPEND", "REPLACE", "UPSERT", "SCD1", "SCD2", "SNAPSHOT_DIFF"}
 SUPPORTED_CRITICALITY = {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
+SUPPORTED_SEMANTIC_PATTERNS = {
+    "FULL_SNAPSHOT_CURRENT",
+    "FULL_SNAPSHOT_HISTORY",
+    "WATERMARK_CURRENT",
+    "WATERMARK_LOOKBACK_CURRENT",
+    "WATERMARK_LOOKBACK_RAW",
+    "WATERMARK_SOFT_DELETE_CURRENT",
+    "WATERMARK_LOOKBACK_SOFT_DELETE_RAW",
+    "NET_CHANGES_CURRENT",
+    "NET_CHANGES_APPEND",
+    "FULL_CHANGES_EVENT",
+    "FULL_CHANGES_CURRENT_LOSSY",
+    "BUSINESS_EVENTS",
+    "SNAPSHOT_DIFF_CURRENT",
+    "SNAPSHOT_DIFF_APPEND",
+}
 STATEFUL_APPLY = {"UPSERT", "SCD1", "SCD2", "SNAPSHOT_DIFF"}
 REQUIRED_COLUMNS = {
     "dataset_id",
@@ -102,9 +122,16 @@ def load_manifest(path: Path) -> list[dict[str, str]]:
                         "for deterministic tie-breaker ordering"
                     )
 
+            semantic_pattern = row.get("semantic_pattern", "").upper()
+            if semantic_pattern and semantic_pattern not in SUPPORTED_SEMANTIC_PATTERNS:
+                raise ValueError(
+                    f"line {line_number}: unsupported semantic_pattern {semantic_pattern!r}"
+                )
+
             row["capture_strategy"] = capture
             row["apply_strategy"] = apply
             row["criticality"] = criticality
+            row["semantic_pattern"] = semantic_pattern
             rows.append(row)
 
     if not rows:
@@ -112,7 +139,70 @@ def load_manifest(path: Path) -> list[dict[str, str]]:
     return rows
 
 
-def build_dataset_config(row: dict[str, str]) -> dict:
+def _semantic_pattern(row: dict[str, str]) -> str:
+    explicit = row.get("semantic_pattern", "")
+    if explicit:
+        return explicit
+
+    capture = row["capture_strategy"]
+    apply = row["apply_strategy"]
+    source_system = row["source_system"].lower()
+
+    if capture == "FULL" and apply == "REPLACE":
+        return "FULL_SNAPSHOT_CURRENT"
+    if capture == "WATERMARK":
+        return "WATERMARK_CURRENT"
+    if capture == "CDC" and source_system == "debezium":
+        return "FULL_CHANGES_EVENT"
+    if capture == "CDC":
+        return "NET_CHANGES_CURRENT"
+    if capture == "STREAM":
+        return "BUSINESS_EVENTS"
+    if capture == "SNAPSHOT" and apply == "APPEND":
+        return "SNAPSHOT_DIFF_APPEND"
+    if capture == "SNAPSHOT":
+        return "SNAPSHOT_DIFF_CURRENT"
+
+    raise ValueError(
+        f"dataset {row['dataset_id']!r}: no safe default semantic_pattern for "
+        f"capture={capture} apply={apply}; add an explicit semantic_pattern column"
+    )
+
+
+def _default_limitations(row: dict[str, str], semantic_pattern: str) -> list[str]:
+    explicit = _split_columns(row.get("known_limitations", ""))
+    if explicit:
+        return explicit
+    if semantic_pattern == "FULL_SNAPSHOT_CURRENT":
+        return [
+            "current-state snapshots do not expose intermediate source changes between snapshots"
+        ]
+    if semantic_pattern == "WATERMARK_CURRENT":
+        return [
+            "hard deletes are not observable unless the source exposes an explicit delete signal",
+            "history is limited to changes observed by the watermark capture path",
+        ]
+    if semantic_pattern == "FULL_CHANGES_EVENT":
+        return [
+            "provider ordering, tombstone/delete handling and replay recovery still require live Debezium/Kafka evidence"
+        ]
+    return []
+
+
+def build_semantic_selection(row: dict[str, str]) -> dict:
+    semantic_pattern = _semantic_pattern(row)
+    return {
+        "dataset_id": row["dataset_id"],
+        "cheatsheet_pattern": semantic_pattern,
+        "rationale": (
+            "Generated from the reviewed onboarding manifest; source owner must confirm "
+            "this semantic selection before production promotion."
+        ),
+        "known_limitations": _default_limitations(row, semantic_pattern),
+    }
+
+
+def build_dataset_config(row: dict[str, str], *, framework_next: bool = False) -> dict:
     keys = _split_columns(row["primary_key"])
     capture = row["capture_strategy"]
     apply = row["apply_strategy"]
@@ -140,7 +230,7 @@ def build_dataset_config(row: dict[str, str]) -> dict:
     else:
         reconciliation_policy = "incremental_checkpoint"
 
-    return {
+    payload: dict = {
         "dataset_id": row["dataset_id"],
         "source": {
             "system": row["source_system"],
@@ -174,6 +264,20 @@ def build_dataset_config(row: dict[str, str]) -> dict:
         "config_schema_version": 1,
     }
 
+    if framework_next and row["source_system"].lower() == "debezium":
+        if capture != "CDC":
+            raise ValueError(
+                f"dataset {row['dataset_id']!r}: Debezium source requires CDC capture"
+            )
+        payload["execution"] = {
+            "engine": "EXTERNAL_CDC",
+            "progress_owner": "EXTERNAL",
+            "capability_profile": "debezium_kafka_v1",
+            "apply_engine": "SPARK",
+        }
+
+    return payload
+
 
 def summarize(rows: list[dict[str, str]]) -> str:
     capture = Counter(row["capture_strategy"] for row in rows)
@@ -191,16 +295,30 @@ def summarize(rows: list[dict[str, str]]) -> str:
     )
 
 
-def write_configs(rows: list[dict[str, str]], output_dir: Path) -> None:
+def write_configs(
+    rows: list[dict[str, str]],
+    output_dir: Path,
+    *,
+    framework_next: bool = False,
+) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     for row in rows:
         dataset_id = row["dataset_id"]
         path = output_dir / f"{dataset_id}.json"
-        payload = build_dataset_config(row)
+        payload = build_dataset_config(row, framework_next=framework_next)
         path.write_text(
             json.dumps(payload, indent=2, sort_keys=False) + "\n",
             encoding="utf-8",
         )
+
+
+def write_semantic_selections(rows: list[dict[str, str]], output_path: Path) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = [build_semantic_selection(row) for row in rows]
+    output_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=False) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -219,6 +337,22 @@ def _parser() -> argparse.ArgumentParser:
         type=int,
         help="Fail if the manifest dataset count differs from this value.",
     )
+    parser.add_argument(
+        "--framework-next",
+        action="store_true",
+        help=(
+            "Emit the additional execution contract used by the pinned 0.4-development "
+            "compatibility lane. This does not change the production framework pin."
+        ),
+    )
+    parser.add_argument(
+        "--semantic-selections-output",
+        type=Path,
+        help=(
+            "Optional path for generated semantic-selections.json. The file is written "
+            "only together with --write."
+        ),
+    )
     return parser
 
 
@@ -231,9 +365,20 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     print(summarize(rows))
+    if args.framework_next:
+        # Resolve every semantic selection during dry-run so unsupported/ambiguous
+        # combinations fail before any files can be written.
+        for row in rows:
+            build_semantic_selection(row)
+        print("framework_next=true semantic_contracts=validated")
+
     if args.write:
-        write_configs(rows, args.output)
+        write_configs(rows, args.output, framework_next=args.framework_next)
+        if args.semantic_selections_output is not None:
+            write_semantic_selections(rows, args.semantic_selections_output)
         print(f"wrote={len(rows)} output={args.output}")
+        if args.semantic_selections_output is not None:
+            print(f"semantic_selections={args.semantic_selections_output}")
     else:
         print("dry_run=true no_files_written=true")
     return 0
