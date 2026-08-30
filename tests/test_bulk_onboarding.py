@@ -86,3 +86,41 @@ def test_health_100_table_manifest_generates_framework_valid_configs(tmp_path: P
             assert config.load.merge_key
         if config.load.apply_strategy.value in {"SCD1", "UPSERT"}:
             assert config.load.merge_key
+
+
+def test_full_replace_can_be_onboarded_without_a_primary_key(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.csv"
+    manifest.write_text(
+        "dataset_id,source_system,source_object,connection_ref,target_object,"
+        "capture_strategy,apply_strategy,primary_key,watermark_column,"
+        "event_time_column,tracked_columns,delete_policy,execution_group,criticality\n"
+        "health.code_set,health_sql,dbo.CodeSet,health_sql_readonly,code_set,"
+        "FULL,REPLACE,,,,,APPLY,health_full_refresh,LOW\n",
+        encoding="utf-8",
+    )
+    output = tmp_path / "configs"
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--manifest",
+            str(manifest),
+            "--output",
+            str(output),
+            "--expect-count",
+            "1",
+            "--write",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    config = DatasetConfig.model_validate(
+        json.loads((output / "health.code_set.json").read_text(encoding="utf-8"))
+    )
+    assert config.load.capture_strategy.value == "FULL"
+    assert config.load.apply_strategy.value == "REPLACE"
+    assert config.load.merge_key == ()
+    assert config.load.business_key == ()
