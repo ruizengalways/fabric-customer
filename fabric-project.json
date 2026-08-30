@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "domain": "customer",
+  "dataset_config_dir": "config/datasets",
+  "capture_selection_dir": "config/capture",
+  "environment_binding_dir": "deploy",
+  "deployment_dir": "deploy",
+  "documentation_dir": "docs",
+  "source_dir": "src",
+  "tests_dir": "tests"
+}
