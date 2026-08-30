@@ -1,0 +1,11 @@
+[
+  {
+    "dataset_id": "crm.customer",
+    "cheatsheet_pattern": "WATERMARK_CURRENT",
+    "rationale": "CRM exposes a deterministic modified_at watermark with customer_id tie-breaker and the target requires current observations to drive SCD2 apply.",
+    "known_limitations": [
+      "hard deletes are not observable unless the source exposes an explicit delete signal",
+      "SCD2 history is limited to changes observed by the watermark capture path"
+    ]
+  }
+]
