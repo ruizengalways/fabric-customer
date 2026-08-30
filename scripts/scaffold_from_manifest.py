@@ -16,6 +16,7 @@ import sys
 
 SUPPORTED_CAPTURE = {"FULL", "WATERMARK", "CDC", "MIRROR", "STREAM", "SNAPSHOT"}
 SUPPORTED_APPLY = {"APPEND", "REPLACE", "UPSERT", "SCD1", "SCD2", "SNAPSHOT_DIFF"}
+SUPPORTED_CRITICALITY = {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
 STATEFUL_APPLY = {"UPSERT", "SCD1", "SCD2", "SNAPSHOT_DIFF"}
 REQUIRED_COLUMNS = {
     "dataset_id",
@@ -64,8 +65,14 @@ def load_manifest(path: Path) -> list[dict[str, str]]:
                 raise ValueError(f"line {line_number}: duplicate dataset_id {dataset_id!r}")
             dataset_ids.add(dataset_id)
 
+            _required(row, "source_system", line_number)
+            _required(row, "source_object", line_number)
+            _required(row, "target_object", line_number)
+            _required(row, "execution_group", line_number)
+
             capture = _required(row, "capture_strategy", line_number).upper()
             apply = _required(row, "apply_strategy", line_number).upper()
+            criticality = (row["criticality"] or "MEDIUM").upper()
             if capture not in SUPPORTED_CAPTURE:
                 raise ValueError(
                     f"line {line_number}: unsupported capture_strategy {capture!r}"
@@ -74,19 +81,30 @@ def load_manifest(path: Path) -> list[dict[str, str]]:
                 raise ValueError(
                     f"line {line_number}: unsupported apply_strategy {apply!r}"
                 )
+            if criticality not in SUPPORTED_CRITICALITY:
+                raise ValueError(
+                    f"line {line_number}: unsupported criticality {criticality!r}"
+                )
 
-            keys = _split_columns(_required(row, "primary_key", line_number))
+            keys = _split_columns(row["primary_key"])
             if apply in STATEFUL_APPLY and not keys:
                 raise ValueError(
                     f"line {line_number}: {apply} requires at least one primary_key"
                 )
-            if capture == "WATERMARK" and not row["watermark_column"]:
-                raise ValueError(
-                    f"line {line_number}: WATERMARK requires watermark_column"
-                )
+            if capture == "WATERMARK":
+                if not row["watermark_column"]:
+                    raise ValueError(
+                        f"line {line_number}: WATERMARK requires watermark_column"
+                    )
+                if not keys:
+                    raise ValueError(
+                        f"line {line_number}: WATERMARK scaffold requires primary_key "
+                        "for deterministic tie-breaker ordering"
+                    )
 
             row["capture_strategy"] = capture
             row["apply_strategy"] = apply
+            row["criticality"] = criticality
             rows.append(row)
 
     if not rows:
