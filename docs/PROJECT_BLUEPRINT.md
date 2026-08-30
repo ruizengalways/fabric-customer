@@ -5,101 +5,75 @@ Last updated: 2026-08-30
 
 ## 1. Goal
 
-Provide a realistic Customer-domain reference proving a domain can consume the reusable `fabric-data-framework` without copying generic capture/apply/control-plane algorithms, and provide the domain-repository bootstrap pattern for large enterprise onboarding.
+Provide a realistic Customer-domain reference proving a domain can consume reusable `fabric-data-framework` behavior without copying generic capture/apply/control-plane algorithms, and provide a production-oriented repository pattern for large enterprise onboarding.
 
 ## 2. Ownership
 
 Customer/domain repo owns WHAT:
 
-- source-controlled domain dataset metadata values;
+- source-controlled domain DatasetConfig values;
+- source/capture semantic selections and known limitations;
 - source parsing/mapping and canonical domain shapes;
 - business-specific DQ/reconciliation rule definitions;
 - domain fixtures/integration/smoke tests;
 - domain-owned Fabric items when introduced;
-- domain execution grouping and deployment bindings.
+- execution grouping and non-secret environment bindings.
 
 Framework owns HOW:
 
+- DatasetConfig schema and capability validation;
 - generic capture/runtime contracts;
 - Bronze normalization and quarantine execution semantics;
 - reusable SCD/apply algorithms;
 - reconciliation/state/checkpoint rules;
 - runtime audit and deployment/control-plane contracts;
-- reusable Fabric adapters.
+- reusable Fabric adapters;
+- project-init/project-validate tooling.
 
-No generic capture/SCD algorithm should be copied into this repo.
+No generic capture/SCD/project validation algorithm should be copied into this repo.
 
-## 3. Implemented executable Customer slice
-
-Source-controlled config:
+## 3. Current Customer project source of truth
 
 ```text
+fabric-project.json
 config/datasets/crm.customer.json
+config/capture/semantic-selections.json
 ```
 
-declares:
+`crm.customer` declares WATERMARK capture on `modified_at` with `customer_id` tie-breaker, SCD2 apply, Customer business keys, DQ/reconciliation policy references and execution group `crm_daily`.
 
-- source `crm / dbo.Customer`;
-- target `silver.customer`;
-- WATERMARK capture;
-- `modified_at` watermark;
-- `customer_id` tie-breaker;
-- SCD2 apply;
-- `customer_id` business/merge key;
-- tracked `name`, `address`, `segment`, `email`;
-- execution group `crm_daily` and HIGH criticality;
-- Customer DQ/quarantine policy reference;
-- required reconciliation policy.
+The semantic selection explicitly records that hard deletes are not observable without a delete signal and that SCD2 history cannot exceed the changes observed by the watermark path.
 
-This file is the semantic source of truth for the executable Customer dataset. DEV/UAT/PROD materialize the same released definition but keep independent runtime state.
+DEV/UAT/PROD materialize the same released semantic definition while keeping independent runtime state.
 
 ## 4. Domain code
 
-`src/fabric_customer/domain.py` contains only Customer-specific behaviour:
+`src/fabric_customer/domain.py` contains only Customer-specific behavior:
 
-- parse source ISO timestamps to typed datetimes;
-- normalize/trim Customer strings;
-- normalize segment casing;
-- normalize email casing;
-- business DQ rule: email contains `@`;
-- business DQ rule: segment belongs to STANDARD/PREMIUM/ENTERPRISE.
+- parse source timestamps;
+- normalize Customer strings/casing;
+- Customer mapping;
+- email-format DQ;
+- segment-domain DQ.
 
-No watermark or SCD2 algorithm exists in this repo.
+No watermark, SCD2, capability-selection or project-validation algorithm lives here.
 
-## 5. Reference fixture behaviour
+## 5. Small runtime correctness fixture
 
-The small runtime fixture proves algorithm/domain correctness without pretending scale through duplicated fake tables.
+The CRM fixtures remain intentionally small. They prove domain/runtime behavior such as:
 
-Initial fixture proves:
+- deterministic watermark tie-breaker ordering;
+- quarantine lineage;
+- SCD2 change detection;
+- unchanged-row idempotency;
+- reconciliation-gated target/watermark commit;
+- rerun behavior.
 
-- two valid customers sharing the same timestamp are both captured through tie-breaker ordering;
-- one later invalid-email row is quarantined with lineage;
-- accepted records reach Silver SCD2;
-- the watermark can advance through the row-level quarantined source position only because reconciliation accounts for the quarantined row.
+Small runtime fixtures prove correctness. They are not a scale benchmark.
 
-Incremental fixture proves:
+## 6. Enterprise 100-table onboarding reference
 
-- unchanged C001 at a later timestamp does not create a new SCD2 version;
-- changed C002 closes the old version and opens a new current version;
-- new C004 inserts;
-- invalid-segment C005 is quarantined;
-- all incremental rows share the same timestamp, exercising tie-breaker ordering;
-- watermark advances after successful reconciliation;
-- rerun selects no rows and makes no target change.
-
-A forced-reconciliation-failure integration test proves proposed target changes and new watermark are not committed.
-
-## 6. Enterprise bulk-onboarding reference
-
-Large domains should not hand-author hundreds of repeated files or notebooks.
-
-The checked-in scale fixture:
-
-```text
-examples/enterprise_100_table/health_100_tables.csv
-```
-
-models:
+The checked-in Health intake fixture models one business/domain repository:
 
 ```text
 50  FULL      -> REPLACE
@@ -108,40 +82,68 @@ models:
 10  CDC       -> UPSERT
 ```
 
-`scripts/scaffold_from_manifest.py` provides deterministic local dry-run and explicit generation of one framework `DatasetConfig` JSON per manifest row.
+Do not split those into four repositories. Capture and apply are per-dataset semantics; repo boundaries follow ownership, security/compliance and release lifecycle.
 
-`tests/test_bulk_onboarding.py` proves all 100 generated definitions validate against the exact released Framework v0.3.0 schema.
-
-This is a config/onboarding scale proof only. Production scale requires provider/runtime/capacity evidence in an approved Fabric environment.
-
-## 7. Repository boundary
-
-Do not organize repos around capture/apply implementation details.
+`scripts/scaffold_from_manifest.py` has two deliberate modes:
 
 ```text
-bad boundary:
-  fabric-health-full-refresh
-  fabric-health-scd1
-  fabric-health-scd2
-  fabric-health-debezium
+default
+  -> released v0.3-compatible DatasetConfig generation
+
+--framework-next
+  -> exact pinned 0.4-development project-contract generation
+  -> semantic selections
+  -> explicit Debezium execution capability profile
 ```
 
-Default:
+The framework-next Health proof uses framework-owned `project-init` and `project-validate` around the generated project instead of inventing a second project validator in Customer.
+
+## 7. Debezium reference contract
+
+For the ten rows whose manifest explicitly declares `source_system=debezium`, framework-next generation writes:
 
 ```text
-fabric-health
+capture_strategy   = CDC
+engine             = EXTERNAL_CDC
+progress_owner     = EXTERNAL
+capability_profile = debezium_kafka_v1
+apply_engine       = SPARK
+semantic pattern   = FULL_CHANGES_EVENT
 ```
 
-Split only when there is a real independent ownership, security/compliance, data-product or release boundary.
+This is still source-controlled intent. Live topic mapping, offsets/order, tombstones/deletes, replay, outage recovery and provider credentials require real integration evidence.
 
-## 8. Current repo shape
+## 8. Dependency model
+
+Production/release dependency:
+
+```text
+fabric-data-framework==0.3.0
+```
+
+The released integration lane downloads the v0.3.0 wheel and checksum and never substitutes Framework `main`.
+
+Compatibility-only framework-next baseline:
+
+```text
+148e02e3fff7861f238296e7554815a6fd49dd0a
+```
+
+CI checks out that exact SHA separately and uses it only to run static project-contract validation. It is not a public release dependency.
+
+When v0.4.0 is published, the Customer runtime/package import migration must happen in a single reviewed PR; do not create permanent dual-runtime compatibility code without a demonstrated need.
+
+## 9. Current repo shape
 
 ```text
 fabric-customer/
+  fabric-project.json
   pyproject.toml
   config/
     datasets/
       crm.customer.json
+    capture/
+      semantic-selections.json
   examples/
     enterprise_100_table/
       health_100_tables.csv
@@ -150,88 +152,100 @@ fabric-customer/
     scaffold_from_manifest.py
     validate_metadata.py
   src/fabric_customer/
-    __init__.py
-    metadata.py
-    domain.py
   tests/
-    fixtures/
-    test_bulk_onboarding.py
-    ...
   deploy/
     bindings.dev.json
     bindings.uat.json
     bindings.prod.json
   docs/
+    PROJECT_BLUEPRINT.md
+    CURRENT_STATUS.md
     runbooks/
       BUILD_NEW_DOMAIN_PROJECT.md
 ```
 
-## 9. Dependency model
+The project manifest intentionally points `environment_binding_dir` to the existing `deploy/` directory so adoption does not create a duplicate binding source of truth. New repositories created directly by framework `project-init` use the framework default layout.
 
-`pyproject.toml` exact-pins:
+## 10. CI proof model
+
+Three proof lanes must remain distinct:
 
 ```text
-fabric-data-framework==0.3.0
+source-metadata-and-wheel
+  source-only validation + Customer wheel build
+
+exact-framework-integration
+  immutable v0.3.0 release integration + Customer tests + release/deployment plans
+
+framework-next-project-contract
+  exact pinned 0.4-development SHA + Customer project-validate + 100-table Health project-validate
 ```
 
-CI downloads the immutable released Framework v0.3.0 wheel, verifies its SHA-256 checksum, installs it, installs Customer, runs cross-package tests, and creates same-release deployment plans.
+A PASS in one lane does not automatically imply another proof class.
 
-Do not switch the domain repo to Framework `main` or an unpublished source version. Upgrade only after a new immutable framework release is available and the domain CI is updated to consume that release exactly.
-
-## 10. Testing responsibility
-
-Domain tests cover metadata values, mapping/DQ rules, bulk onboarding contracts and cross-package integration behaviour. Framework tests cover generic algorithm invariants.
-
-Separate proof types:
+## 11. Proof taxonomy
 
 ```text
 manifest/config scale proof
 !=
 runtime correctness proof
 !=
+released dependency proof
+!=
 real Fabric provider integration proof
 !=
 capacity/performance proof
 ```
 
-Do not use one as evidence for another.
+This distinction is non-negotiable in code comments, PR descriptions and documentation.
 
-## 11. Delivery model
+## 12. Delivery model
 
-The same immutable domain Git SHA/config bundle/framework version moves DEV -> UAT/TEST -> PROD. Config schema/definitions are promoted; environment-local runtime state is not.
+The same immutable domain Git SHA/config bundle/framework release moves DEV -> UAT/TEST -> PROD. Environment-local runtime state is not promoted.
 
-`deploy/bindings.*.json` resolves environment-specific non-secret physical bindings outside the semantic metadata hash.
+`deploy/bindings.*.json` resolves non-secret physical bindings outside semantic DatasetConfig truth. Secrets and raw credentials never belong in Git.
 
-The supported CI/CD shape is compatible with GitHub-driven Fabric automation and Fabric-native Deployment Pipeline promotion.
+## 13. Project bootstrap model
 
-## 12. Project bootstrap / Fabric runbook
+For Framework v0.4+ the intended new-domain flow is:
 
-`docs/runbooks/BUILD_NEW_DOMAIN_PROJECT.md` is the canonical domain-side procedure for:
+```text
+install immutable framework wheel
+  -> fabric-framework project-init
+  -> source inventory
+  -> DatasetConfig + semantic selections
+  -> fabric-framework project-validate
+  -> domain tests
+  -> GitHub PR/CI
+  -> immutable release artifacts
+  -> Fabric DEV integration
+  -> TEST/UAT
+  -> PROD promotion
+```
 
-- jumpbox/VDI bootstrap;
-- local Python environment and exact framework release installation;
-- bulk manifest dry-run/generation;
-- GitHub PR/CI;
-- Fabric DEV/TEST/PROD workspaces;
-- Fabric Environment custom wheels;
-- logical connection/secrets boundary;
-- thin metadata-driven drivers;
-- representative pattern integration proof;
-- immutable release/deployment plan;
-- production promotion checklist.
+Until v0.4.0 is immutable, Customer CI exercises this flow only against the exact pinned framework-next SHA while the production lane stays on v0.3.0.
 
-The runbook explicitly records the current external limitation: this reference repo has not yet completed a real Fabric workspace deployment, so documentation is not evidence of deployment.
-
-## 13. Roadmap status
+## 14. Roadmap status
 
 - Phase 0 — COMPLETE: canonical architecture.
 - Phase 1 — COMPLETE dependency: framework foundation.
-- Phase 2 — COMPLETE: first `crm.customer` executable vertical slice.
+- Phase 2 — COMPLETE: `crm.customer` executable vertical slice.
 - Phase 3 — COMPLETE: CI/package/release/deployment spine.
 - Enterprise bulk onboarding — COMPLETE as config/CI/runbook proof.
-- Next runtime proof — after immutable Framework v0.4.0, add the smallest representative multi-dataset failure-isolation graph.
-- Later — retry/backfill/replay, representative SNAPSHOT_DIFF and CDC/UPSERT, delete/late-arrival/schema-evolution policies, and real Fabric Environment/Notebook/Pipeline evidence.
+- Framework-next project contract — IMPLEMENTED, pending branch CI/merge.
+- After immutable Framework v0.4.0 — upgrade Customer dependency/imports, then add the smallest representative multi-dataset dispatcher/failure-isolation graph.
+- Later — retry/backfill/replay, representative CDC/UPSERT/SNAPSHOT_DIFF, delete/late-arrival/schema-evolution policies, real Fabric evidence and controlled capacity ramp.
 
-## 14. Documentation obligation
+## 15. Documentation obligation
 
-Every coherent domain implementation updates `CURRENT_STATUS.md`. Routine work inside accepted architecture continues without per-file approval pauses.
+Every coherent domain implementation updates and cross-checks:
+
+```text
+README.md
+docs/PROJECT_BLUEPRINT.md
+docs/CURRENT_STATUS.md
+docs/runbooks/BUILD_NEW_DOMAIN_PROJECT.md
+examples/enterprise_100_table/README.md
+```
+
+The command examples, version pins, evidence labels and ownership boundaries must agree before merge.
