@@ -88,6 +88,59 @@ def test_health_100_table_manifest_generates_framework_valid_configs(tmp_path: P
             assert config.load.merge_key
 
 
+def test_framework_next_generation_adds_semantics_and_debezium_profile(
+    tmp_path: Path,
+) -> None:
+    project = tmp_path / "health"
+    output = project / "config" / "datasets"
+    selections_path = project / "config" / "capture" / "semantic-selections.json"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--manifest",
+            str(MANIFEST),
+            "--output",
+            str(output),
+            "--expect-count",
+            "100",
+            "--framework-next",
+            "--semantic-selections-output",
+            str(selections_path),
+            "--write",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "framework_next=true semantic_contracts=validated" in result.stdout
+    assert len(list(output.glob("*.json"))) == 100
+
+    selections = json.loads(selections_path.read_text(encoding="utf-8"))
+    assert len(selections) == 100
+    patterns = Counter(item["cheatsheet_pattern"] for item in selections)
+    assert patterns == {
+        "FULL_SNAPSHOT_CURRENT": 50,
+        "WATERMARK_CURRENT": 40,
+        "FULL_CHANGES_EVENT": 10,
+    }
+    assert len({item["dataset_id"] for item in selections}) == 100
+
+    for index in range(1, 11):
+        path = output / f"health.cdc_{index:03d}.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        assert payload["source"]["system"] == "debezium"
+        assert payload["load"]["capture_strategy"] == "CDC"
+        assert payload["execution"] == {
+            "engine": "EXTERNAL_CDC",
+            "progress_owner": "EXTERNAL",
+            "capability_profile": "debezium_kafka_v1",
+            "apply_engine": "SPARK",
+        }
+
+
 def test_full_replace_can_be_onboarded_without_a_primary_key(tmp_path: Path) -> None:
     manifest = tmp_path / "manifest.csv"
     manifest.write_text(

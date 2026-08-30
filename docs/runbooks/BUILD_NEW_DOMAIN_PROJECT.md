@@ -1,102 +1,212 @@
 # Runbook — Build a New Enterprise Fabric Domain Project
 
-Status: executable project bootstrap and deployment procedure
+Status: canonical domain bootstrap and promotion procedure
 
 Last updated: 2026-08-30
 
-This runbook describes how to use `fabric-customer` as the reference shape for a new enterprise Microsoft Fabric data-engineering domain repository such as `fabric-health`.
-
-The worked scale example is 100 datasets:
-
-- 50 full-refresh datasets;
-- 20 watermark datasets materialized as SCD2;
-- 20 watermark datasets materialized as SCD1;
-- 10 Debezium/CDC datasets materialized as current-state UPSERT.
-
-The patterns are deliberately modeled on two independent axes:
+This runbook answers the practical workflow:
 
 ```text
-capture semantics              target/apply semantics
------------------              ----------------------
-FULL                           REPLACE
-WATERMARK                      SCD1
-CDC                            SCD2
-...                            UPSERT
+I received a new Microsoft Fabric data-engineering domain.
+How do I build the repo on a developer machine/jumpbox,
+organize tens or hundreds of datasets,
+validate it before Git push,
+and then prove it safely in Fabric?
 ```
 
-Do not create separate repositories just because capture/apply strategies differ. Repository boundaries should follow data-product ownership, security/compliance boundaries and independent release lifecycles.
+The worked example is one `health` domain with 100 datasets:
 
-## 1. What this repo owns
+```text
+50  FULL      -> REPLACE
+20  WATERMARK -> SCD2
+20  WATERMARK -> SCD1
+10  CDC       -> UPSERT using Debezium/Kafka
+```
+
+Capture and apply are separate axes. Repository boundaries do not follow SCD type or capture technology.
+
+---
+
+## 1. Non-negotiable repository model
+
+Use one repository for one coherent ownership/security/release boundary.
+
+For the Health example, the default is:
+
+```text
+fabric-health
+```
+
+Do **not** create:
+
+```text
+fabric-health-full
+fabric-health-scd1
+fabric-health-scd2
+fabric-health-debezium
+```
+
+merely because the datasets use different technical patterns.
+
+Split only for a real boundary such as:
+
+- independent owning teams/release authority;
+- different PHI/PII/security/compliance boundary;
+- genuinely independent data products;
+- different approval/promotion lifecycle;
+- materially different blast radius that cannot be managed as one product.
+
+Inside one repo, use `orchestration.execution_group` for operational grouping.
+
+---
+
+## 2. Framework vs domain ownership
 
 The domain repository owns WHAT:
 
-- which datasets exist;
+- dataset inventory;
 - source system/object and logical connection reference;
-- capture/apply selection;
 - business/merge keys;
-- watermark/event ordering columns;
-- domain DQ/reconciliation policy references;
-- execution groups, dependencies, criticality and operational settings;
-- domain code, fixtures and tests;
-- domain-owned Fabric items once those items are introduced.
+- source ordering/watermark facts;
+- delete visibility;
+- history requirement;
+- capture/apply selection;
+- semantic capture declaration and known limitations;
+- execution group/dependency/criticality;
+- domain-specific transformations and DQ rules;
+- environment-local non-secret bindings;
+- domain tests/docs/Fabric content.
 
 `fabric-data-framework` owns HOW:
 
-- generic capture/runtime contracts;
-- Bronze normalization;
-- generic SCD/apply algorithms;
-- state/checkpoint semantics;
-- audit/reconciliation contracts;
-- release/deployment contracts;
-- reusable Fabric adapters.
+- DatasetConfig schema;
+- project-init/project-validate;
+- capability resolution;
+- generic capture/runtime semantics;
+- Bronze contracts;
+- generic SCD/apply implementations;
+- checkpoint/state/reconciliation semantics;
+- provider adapters/recovery/evidence contracts;
+- release/deployment contracts.
 
-Do not copy generic framework algorithms into the domain repo.
+Do not copy generic framework source into a customer/domain repository.
 
-## 2. Current released baseline
+---
 
-This reference currently exact-pins:
+## 3. Understand the two framework lanes currently used by this reference
+
+### Released production lane
+
+`fabric-customer` still exact-pins the immutable public release:
 
 ```text
 fabric-data-framework==0.3.0
 ```
 
-Use the immutable released wheel, not Framework `main`. Framework `main` can contain source version features that have not yet been published as an immutable release.
+This is the current released runtime/package baseline. CI downloads the wheel and `SHA256SUMS`, verifies the checksum and runs the Customer cross-package tests.
 
-The repo-level bulk scaffold command introduced here is:
+### Exact framework-next compatibility lane
 
-```bash
-python scripts/scaffold_from_manifest.py ...
+A separate CI job checks the exact framework development SHA:
+
+```text
+148e02e3fff7861f238296e7554815a6fd49dd0a
 ```
 
-It is local developer tooling. It is not a Fabric runtime command and is not the framework CLI.
+This lane exists so the domain repo can adopt/test the forthcoming 0.4 project contract before the release is published.
 
-The released framework CLI is:
+It is **not** a production dependency. Do not put an unpublished framework Git SHA into the production Fabric Environment merely because this compatibility job passes.
 
-```bash
-fabric-framework
+When v0.4.0 becomes immutable, replace the two-lane transition with one exact released v0.4.0 dependency through a reviewed migration PR.
+
+---
+
+## 4. Prepare the developer machine or jumpbox
+
+Required local tools:
+
+```text
+Git
+Python 3.11+
+company-approved credentials for the Git repository/package registry
 ```
 
-and is used for released framework operations such as release-manifest/deployment-plan generation.
+Create an isolated environment:
 
-## 3. Prerequisites
+```bash
+python -m venv .venv
 
-Before onboarding a real project, obtain:
+# Linux/macOS
+source .venv/bin/activate
 
-- a company-managed GitHub repository;
-- a company jumpbox/VDI/developer machine with Git and Python 3.11+;
-- access to the approved internal Python package registry or immutable framework wheel release;
-- a Fabric capacity and separate DEV/TEST/PROD workspaces;
-- approved Fabric source connections/identities;
-- source-owner answers for PK, ordering, deletes, late arrivals and history requirements;
-- approval for any PHI/PII/security boundary relevant to the domain.
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
 
-Never put passwords, tokens, private keys, connection strings or production Fabric IDs in semantic dataset metadata.
+python -m pip install --upgrade pip setuptools
+```
 
-## 4. Bootstrap the domain repository on the jumpbox
+A Conda environment is also acceptable if that is the corporate standard.
 
-Preferred enterprise option: create the new repo from the approved `fabric-customer` template/reference snapshot, then work in a feature branch.
+The framework CLI is intended to run here, in CI, or in an approved operator environment. You do not need an interactive shell inside Fabric for normal scheduled execution.
 
-If a GitHub template is not configured, use the reference repo explicitly:
+---
+
+## 5. Preferred bootstrap once Framework v0.4.0 is released
+
+After installing the immutable approved framework wheel:
+
+```bash
+python -m pip install fabric-data-framework==0.4.0
+
+fabric-framework project-init ./fabric-health --domain health
+cd fabric-health
+```
+
+Expected skeleton:
+
+```text
+fabric-health/
+├─ fabric-project.json
+├─ README.md
+├─ config/
+│  ├─ datasets/
+│  ├─ capture/
+│  └─ environments/
+├─ deploy/
+├─ docs/
+│  └─ dataset-inventory.csv
+├─ src/
+└─ tests/
+```
+
+`project-init` is deliberately non-destructive. It does not guess:
+
+- PK/business key;
+- watermark safety;
+- delete visibility;
+- history fidelity;
+- SCD1/SCD2;
+- provider capability;
+- Fabric workspace/item IDs;
+- credentials/secrets.
+
+For an existing corporate repo, the intentional adoption command is:
+
+```bash
+fabric-framework project-init . --domain health --allow-existing
+```
+
+Existing files are never overwritten. Review the generated/adopted layout before committing.
+
+---
+
+## 6. What to do today before v0.4.0 is released
+
+Do **not** replace the released v0.3.0 dependency with Framework `main` for production.
+
+Use `fabric-customer` as the reference/template and let CI perform the exact-SHA framework-next compatibility proof.
+
+A typical corporate bootstrap is:
 
 ```bash
 git clone https://github.com/ruizengalways/fabric-customer.git fabric-health
@@ -108,89 +218,51 @@ git remote add origin <company-github-url>/fabric-health.git
 git checkout -b bootstrap/health
 ```
 
-Before the first production release, rename the package/domain-specific Customer names in `pyproject.toml`, `src/`, docs and workflows. Do not publish a Health project with a Customer package identity.
+Then rename Customer package/domain identities before any real release.
 
-Expected architectural shape:
+The reference repo already contains `fabric-project.json`, so the exact framework-next CI job can run `project-validate` without changing the production dependency pin.
 
-```text
-fabric-health/
-  .github/workflows/
-  config/datasets/
-  deploy/
-  docs/runbooks/
-  examples/
-  scripts/
-  src/
-  tests/
-  pyproject.toml
-```
+---
 
-## 5. Create and activate a local Python environment
+## 7. Start with source inventory, not JSON or notebooks
 
-Using `venv`:
+Before generating configs, get source-owner answers for every dataset.
 
-```bash
-python -m venv .venv
-
-# Linux/macOS
-source .venv/bin/activate
-
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
-```
-
-Or use the company's approved Conda environment.
-
-Upgrade packaging tools:
-
-```bash
-python -m pip install --upgrade pip setuptools
-```
-
-Install the exact approved framework release and the domain repo. In a company environment, prefer the internal package registry. For this public reference release, CI demonstrates download + SHA-256 verification of the immutable v0.3.0 wheel.
-
-```bash
-python -m pip install fabric-data-framework==0.3.0
-python -m pip install -e ".[dev]"
-python -m pip check
-```
-
-## 6. Collect the 100-table intake manifest
-
-Do not start by creating 100 notebooks.
-
-Collect one row per dataset with at least:
+At minimum record:
 
 ```text
 dataset_id
-source_system
-source_object
-connection_ref
-target_object
-capture_strategy
-apply_strategy
-primary_key
-watermark_column
-event_time_column
-tracked_columns
-delete_policy
-execution_group
+source system/object
+logical connection reference
+business/primary key
+source change shape
+ordering signal
+watermark column and tie-breaker
+hard/soft delete signal
+late/back-dated update risk
+history requirement
+capture strategy
+apply strategy
+target object
+execution group
 criticality
 ```
 
-Use `|` inside CSV fields for multi-column lists, for example:
+Unknown is an acceptable temporary answer. A guessed semantic claim is not.
 
-```text
-customer_id|source_id
-```
+Do not start by writing 100 notebooks.
 
-The checked-in scale example is:
+---
+
+## 8. Use the checked-in 100-table intake example
+
+Reference manifest:
 
 ```text
 examples/enterprise_100_table/health_100_tables.csv
 ```
 
-Its distribution is:
+Distribution:
 
 ```text
 Capture
@@ -203,13 +275,28 @@ Apply
   SCD2       20
   SCD1       20
   UPSERT     10
+
+Execution groups
+  health_full_refresh  50
+  health_scd2          20
+  health_scd1          20
+  health_debezium      10
 ```
 
-The 10 CDC rows use `source_system=debezium` and a logical Kafka connection reference. This is an onboarding contract example, not proof that this Customer repo has executed Debezium against a real Fabric workspace.
+The ten CDC rows explicitly declare:
 
-## 7. Dry-run the manifest locally
+```text
+source_system = debezium
+connection_ref = health_debezium_kafka
+```
 
-Run validation without writing files:
+This is source-controlled provider intent, not live connectivity proof.
+
+---
+
+## 9. Run the dependency-free intake dry run first
+
+This command works without the framework package:
 
 ```bash
 python scripts/scaffold_from_manifest.py \
@@ -218,7 +305,7 @@ python scripts/scaffold_from_manifest.py \
   --expect-count 100
 ```
 
-Expected summary:
+Expected high-level result:
 
 ```text
 datasets=100
@@ -228,11 +315,13 @@ execution_groups: health_debezium=10, health_full_refresh=50, health_scd1=20, he
 dry_run=true no_files_written=true
 ```
 
-This dry-run validates manifest shape and strategy requirements. It does not connect to a source, Fabric workspace, OneLake or production secret store.
+This validates intake shape/key/watermark requirements. It does not validate the full framework capability/semantic contract.
 
-## 8. Generate the real dataset metadata
+---
 
-In a NEW domain repository, generate the real source-controlled dataset configs into `config/datasets`:
+## 10. Generate released-v0.3-compatible configs when required
+
+The default generator mode remains compatible with the current released Customer dependency:
 
 ```bash
 python scripts/scaffold_from_manifest.py \
@@ -242,151 +331,224 @@ python scripts/scaffold_from_manifest.py \
   --write
 ```
 
-The result is one deterministic framework `DatasetConfig` JSON per dataset.
+This keeps the existing v0.3.0 release lane stable during the transition.
 
-Examples:
+Do not use this compatibility fact as a reason to postpone reviewing source semantics.
 
-```text
-config/datasets/health.reference_001.json
-config/datasets/health.history_001.json
-config/datasets/health.current_001.json
-config/datasets/health.cdc_001.json
-...
+---
+
+## 11. Exercise the exact 0.4-next project contract
+
+This is what the new CI lane performs against the exact pinned framework SHA.
+
+Create an isolated temporary project:
+
+```bash
+fabric-framework project-init build/health-project --domain health
 ```
 
-Do not blindly accept generated defaults. Review each dataset family and amend domain-specific fields/policies as required.
+Generate the 100 DatasetConfig files plus semantic selections:
 
-Important review rules:
-
-- `WATERMARK` must have a watermark column and deterministic tie-breaker/overlap safety;
-- stateful apply (`UPSERT`, `SCD1`, `SCD2`, `SNAPSHOT_DIFF`) requires merge keys;
-- `SCD2` requires a business key and only claims history that the capture fidelity can actually observe;
-- hard-delete claims must match the source's real delete visibility;
-- Debezium/CDC delete semantics must be defined and tested;
-- physical workspace/lakehouse/warehouse IDs belong in environment bindings, not semantic dataset metadata.
-
-## 9. Keep 100 datasets in one repo unless the boundary is organizational
-
-One repo is the default for the 100-table Health example.
-
-Do NOT split because of:
-
-```text
-FULL vs WATERMARK vs CDC
-SCD1 vs SCD2
-number of tables
-number of execution groups
+```bash
+python scripts/scaffold_from_manifest.py \
+  --manifest examples/enterprise_100_table/health_100_tables.csv \
+  --output build/health-project/config/datasets \
+  --expect-count 100 \
+  --framework-next \
+  --semantic-selections-output build/health-project/config/capture/semantic-selections.json \
+  --write
 ```
 
-Consider separate repos only when there is a real boundary such as:
+Run project validation:
 
-- different owning teams with independent release authority;
-- different security/PHI/compliance boundaries;
-- different lifecycle and approval chains;
-- genuinely independent data products/workspaces.
+```bash
+fabric-framework project-validate build/health-project \
+  --output build/health-project-validation.json
+```
 
-For example, `fabric-health-clinical` and `fabric-health-public-reference` can be separate if their access, approval and release boundaries are materially different. They should not be separate merely because one uses SCD2 and the other uses full refresh.
+Expected contract:
 
-## 10. Validate locally before Git push
+```text
+dataset_count = 100
+semantic_selection_count = 100
+capture strategies = FULL 50 / WATERMARK 40 / CDC 10
+apply strategies = REPLACE 50 / SCD2 20 / SCD1 20 / UPSERT 10
+capture engines = SPARK 90 / EXTERNAL_CDC 10
+apply engines = SPARK 100
+```
 
-Run the dependency-free source contract:
+The 90 non-Debezium datasets currently use framework AUTO capture resolution, which conservatively resolves to Spark in the current 0.4 development profile. A real domain can later choose explicit certified Fabric capture engines per dataset where appropriate.
+
+---
+
+## 12. Why the ten Debezium configs are now different
+
+In framework-next mode, a manifest row that explicitly says `source_system=debezium` emits:
+
+```json
+{
+  "execution": {
+    "engine": "EXTERNAL_CDC",
+    "progress_owner": "EXTERNAL",
+    "capability_profile": "debezium_kafka_v1",
+    "apply_engine": "SPARK"
+  }
+}
+```
+
+and the semantic selection is:
+
+```text
+FULL_CHANGES_EVENT
+```
+
+This fixes the previous reference gap where the documentation called the rows Debezium but the generated config only declared generic `CDC`.
+
+It still does not prove:
+
+- real Kafka topic mapping;
+- partition/offset order;
+- tombstone/delete behavior;
+- replay after outage;
+- credential/network access;
+- live Fabric target application.
+
+Those are integration evidence tasks.
+
+---
+
+## 13. Semantic selections are mandatory project truth in the 0.4 contract
+
+For each DatasetConfig, keep exactly one semantic selection under:
+
+```text
+config/capture/semantic-selections.json
+```
+
+The framework validator checks coverage and semantic consistency.
+
+Examples for this Health fixture:
+
+```text
+FULL + REPLACE       -> FULL_SNAPSHOT_CURRENT
+WATERMARK            -> WATERMARK_CURRENT
+Debezium CDC         -> FULL_CHANGES_EVENT
+```
+
+Generated defaults are a bootstrap aid, not authority. The source owner/data engineer must review and change an incorrect semantic pattern before production promotion.
+
+Important examples:
+
+- WATERMARK cannot discover hard deletes that have already disappeared unless the source provides a delete signal.
+- SCD2 does not magically reconstruct source changes that capture never observed.
+- Full snapshot current state does not expose every intermediate source change.
+
+---
+
+## 14. Run `project-validate` before Git push
+
+For a v0.4+ project, the normal developer gate becomes:
+
+```bash
+fabric-framework project-validate . \
+  --output build/project-validation.json
+```
+
+It checks the whole repo as one contract, including:
+
+```text
+DatasetConfig parsing/uniqueness
+dependency references
+dependency cycles
+capture capability compatibility
+apply capability compatibility
+semantic-selection completeness
+unknown semantic-selection dataset IDs
+semantic pattern/capture agreement
+history/delete overclaim guardrails
+workload summary
+```
+
+This is the project-level dry run we want before GitHub.
+
+A PASS means source-controlled static validity. It is not a Fabric deployment certification.
+
+---
+
+## 15. Keep customer/domain tests separate from project validation
+
+Project validation does not replace domain tests.
+
+Run domain tests for:
+
+- mappings;
+- DQ rules;
+- domain extensions;
+- representative runtime slices;
+- fixtures;
+- deployment assumptions.
+
+Current Customer v0.3 release lane:
 
 ```bash
 python scripts/validate_metadata.py
-```
-
-Run tests against the exact framework release:
-
-```bash
 pytest -q
 ```
 
-Build the domain wheel:
+Once Customer upgrades to immutable v0.4.0, canonical Python imports/tests must be migrated in one reviewed dependency-upgrade PR.
 
-```bash
-python -m pip wheel . --no-deps --no-build-isolation -w dist
-```
+---
 
-The 100-table scale test in `tests/test_bulk_onboarding.py` proves that the bulk manifest can generate 100 distinct configs and that every generated config validates against the released framework `DatasetConfig` schema.
+## 16. GitHub PR and CI gates
 
-This is different from runtime scale/performance proof. Runtime concurrency, throughput and provider integration must be proven in an approved Fabric environment.
-
-## 11. Commit and open a pull request
-
-```bash
-git status
-git add .
-git commit -m "bootstrap health domain metadata"
-git push -u origin bootstrap/health
-```
-
-Open a PR.
-
-The repository CI should block merge unless at least these checks pass:
-
-- exact framework dependency pin;
-- semantic metadata validation;
-- bulk onboarding manifest validation;
-- source compile;
-- domain wheel build;
-- exact released framework wheel download/checksum/install;
-- cross-package tests;
-- release-manifest generation;
-- DEV/TEST(or UAT)/PROD deployment-plan generation.
-
-Use branch protection in the company repo so CI and required review cannot be bypassed for production branches.
-
-## 12. Create Fabric DEV / TEST / PROD workspaces
-
-Create separate workspaces, for example:
+Normal flow:
 
 ```text
-health-dev
-health-test
-health-prod
+local/jumpbox
+  -> inventory
+  -> DatasetConfig + semantic selections
+  -> project-validate
+  -> domain tests
+  -> git commit
+  -> push feature branch
+  -> PR
+  -> required CI
+  -> merge
 ```
 
-Use company naming/tagging/capacity conventions.
+The current reference CI deliberately has three jobs:
 
-Microsoft's current Fabric CI/CD guidance is to connect the developer workspace to Git and promote tested content through deployment pipelines or an equivalent API-driven release process.
+### `source-metadata-and-wheel`
 
-Keep runtime state environment-local. Do not copy DEV watermarks/run history/quarantine state into PROD as release artifacts.
+- source-only metadata validation;
+- 100-row intake dry run;
+- source compile;
+- Customer wheel build.
 
-## 13. Connect the DEV workspace to Git
+### `exact-framework-integration`
 
-In Fabric DEV workspace settings:
+- immutable v0.3.0 wheel download;
+- SHA-256 verification;
+- Customer install/tests;
+- release manifest;
+- DEV/UAT/PROD deployment plans.
 
-1. Open Git integration / source control.
-2. Connect the approved GitHub organization/repository.
-3. Select the approved integration branch/folder.
-4. Sync the workspace only after the PR-controlled source is ready.
-5. Review conflicts before applying updates.
+### `framework-next-project-contract`
 
-The Git repository is the review/audit boundary. Do not use ad-hoc portal edits as the only copy of production logic.
+- exact pinned 0.4-development source checkout;
+- Customer root `project-validate`;
+- temporary `project-init` Health repo;
+- 100 configs + 100 semantic selections;
+- Health `project-validate`;
+- retained JSON validation reports.
 
-Reference: Microsoft Learn, "Introduction to CI/CD in Microsoft Fabric" and "CI/CD workflow options in Fabric".
+Do not merge these evidence labels in documentation or release notes.
 
-## 14. Create the Fabric Environment and install immutable wheels
+---
 
-In the DEV workspace:
+## 17. Environment bindings and secrets
 
-1. Create a Fabric Environment item, for example `env-health-dev`.
-2. Select the approved Fabric Spark runtime.
-3. Add approved public dependencies if needed.
-4. Add the immutable `fabric-data-framework` wheel as a custom library.
-5. Add the immutable domain wheel built by CI as a custom library.
-6. Publish the Environment changes.
-7. Attach the Environment to domain notebooks and/or Spark Job Definitions.
-
-Do not make every production notebook execute `%pip install` for the framework. The Environment is the normal production dependency boundary for Spark notebooks/jobs.
-
-Fabric environments can be versioned/synchronized through Git integration and promoted through deployment pipelines. Changes synced from Git must be published before they become the live Environment state.
-
-Reference: Microsoft Learn, "Create, configure, and use an Environment in Fabric", "Manage libraries in Fabric environments", and "Use Git integration and deployment pipelines for environments".
-
-## 15. Configure source connections and secrets
-
-The semantic dataset config contains logical references such as:
+Semantic DatasetConfig files contain logical references such as:
 
 ```json
 {
@@ -394,101 +556,39 @@ The semantic dataset config contains logical references such as:
 }
 ```
 
-Create/bind the actual Fabric connection/identity in the target environment using the company-approved mechanism.
+Physical workspace/item IDs and non-secret binding values are environment-local deployment configuration.
 
-Keep secrets out of Git. Prefer managed/workspace identity or approved secret management over embedded credentials.
-
-The exact mapping from `connection_ref` to a Fabric connection is environment-specific and belongs in deployment bindings/configuration, not in the semantic dataset hash.
-
-## 16. Create or bind Lakehouse/Warehouse targets
-
-Provision the required DEV target items according to the platform/infrastructure standard.
-
-The domain release should keep logical target semantics stable while `deploy/bindings.dev.json`, `deploy/bindings.uat.json` and `deploy/bindings.prod.json` resolve environment-specific physical targets.
-
-Do not place DEV/PROD workspace IDs directly in `config/datasets/*.json`.
-
-## 17. Use thin Fabric drivers, not 100 copied notebooks
-
-The target runtime shape is metadata-driven:
+Secrets must remain outside Git:
 
 ```text
-Fabric Pipeline / scheduler
-        |
-        +-- dataset_id / execution_group
-        v
-thin Notebook or Spark Job Definition
-        |
-        v
-fabric-data-framework runtime
-        |
-        +-- read DatasetConfig
-        +-- capture
-        +-- normalize / DQ
-        +-- apply
-        +-- reconcile
-        +-- commit checkpoint/state
+passwords
+access tokens
+client secrets
+private keys
+raw connection strings
 ```
 
-For 100 tables, prefer a small number of driver items plus execution groups rather than 100 copies of the same ingestion/SCD code.
+Prefer approved managed/workspace identity and corporate secret management.
 
-A sensible first grouping for the example is:
+This reference keeps legacy non-secret bindings under:
 
 ```text
-health_full_refresh   50
-health_scd2           20
-health_scd1           20
-health_debezium       10
+deploy/bindings.dev.json
+deploy/bindings.uat.json
+deploy/bindings.prod.json
 ```
 
-These are scheduling/concurrency groups, not separate repositories.
+`fabric-project.json` points `environment_binding_dir` to `deploy/` to avoid creating a second binding source of truth during adoption. New repos created by project-init can use the framework default `config/environments/` layout.
 
-## 18. DEV integration sequence
+---
 
-Do not switch all 100 datasets on at once on the first real Fabric proof.
+## 18. Build immutable release artifacts
 
-Recommended sequence:
+Do not rebuild a different package for each environment.
 
-1. one FULL + REPLACE representative;
-2. one WATERMARK + SCD1 representative;
-3. one WATERMARK + SCD2 representative;
-4. one Debezium/CDC representative;
-5. retry/idempotency/reconciliation failure drills;
-6. a small mixed execution group;
-7. controlled concurrency ramp;
-8. then onboard the remaining datasets by metadata once the patterns are proven.
+The release identity must include the exact domain Git SHA/config bundle and exact released framework version.
 
-For each representative, retain evidence for:
-
-- source row/change boundary;
-- target row/state result;
-- checkpoint/watermark result;
-- DQ/quarantine result;
-- reconciliation result;
-- retry/rerun idempotency;
-- delete behavior where applicable;
-- run/audit identity and released framework/domain versions.
-
-This separates "100 configs validate" from "the provider/runtime path is production proven".
-
-## 19. Debezium/CDC boundary
-
-For the ten Debezium rows, `capture_strategy=CDC` expresses the semantic contract. The real provider integration must also prove:
-
-- topic/source mapping;
-- key extraction;
-- ordering/offset semantics;
-- update before/after payload handling;
-- tombstone/delete handling;
-- duplicate/replay behavior;
-- checkpoint ownership;
-- outage/recovery behavior.
-
-Framework source after v0.3.0 contains newer execution/capability-profile concepts, but this domain must not depend on unpublished framework source. Upgrade only after the relevant framework release is immutable and CI has switched the exact pin.
-
-## 20. Produce the immutable release/deployment plan
-
-After domain tests pass, build the framework release contract using the released CLI. Example:
+Current v0.3 example:
 
 ```bash
 fabric-framework release-manifest \
@@ -501,72 +601,172 @@ fabric-framework release-manifest \
   --output release-manifest.json
 ```
 
-Then plan each environment with the SAME release manifest:
+Then plan each environment with the same release manifest and different approved bindings.
 
-```bash
-fabric-framework deployment-plan \
-  --manifest release-manifest.json \
-  --bindings deploy/bindings.dev.json \
-  --output dev-plan.json
+When v0.4.0 becomes the Customer runtime dependency, change the framework version only through the reviewed dependency-upgrade/release process.
 
-fabric-framework deployment-plan \
-  --manifest release-manifest.json \
-  --bindings deploy/bindings.uat.json \
-  --output test-plan.json
+---
 
-fabric-framework deployment-plan \
-  --manifest release-manifest.json \
-  --bindings deploy/bindings.prod.json \
-  --output prod-plan.json
-```
+## 19. Fabric DEV setup
 
-The domain Git SHA/config bundle/framework version is immutable across promotion. Only approved environment binding values differ.
+After source/CI gates are green:
 
-## 21. Promote DEV -> TEST -> PROD
+1. create/select the approved DEV workspace;
+2. create/select the domain Fabric Environment;
+3. install the immutable approved framework wheel;
+4. install the immutable domain wheel;
+5. publish the Environment;
+6. bind approved source connections/identity;
+7. provision/bind Lakehouse/Warehouse targets;
+8. deploy/sync thin domain driver items;
+9. keep runtime state environment-local.
 
-Use Fabric Deployment Pipelines or an approved API-driven equivalent.
+Do not make every production notebook execute ad-hoc `%pip install` commands.
 
-Recommended promotion gate:
+Do not put generic framework algorithms into 100 copied notebooks.
+
+---
+
+## 20. Thin-driver runtime shape
+
+Target design:
 
 ```text
-PR merged
-  -> CI green
-  -> immutable domain/framework artifacts
-  -> sync/deploy DEV
-  -> DEV integration evidence green
-  -> deploy TEST
-  -> automated + business/UAT checks
-  -> release approval
-  -> deploy PROD
-  -> production smoke + reconciliation
+Fabric Pipeline / scheduler
+        |
+        +-- dataset_id / execution_group
+        v
+thin Notebook or Spark Job Definition
+        |
+        v
+released fabric-data-framework
+        |
+        +-- DatasetConfig
+        +-- capture
+        +-- normalize / DQ
+        +-- apply
+        +-- reconcile
+        +-- checkpoint/state
 ```
 
-Do not rebuild the package separately for PROD. Promote the same tested immutable artifact/release identity.
+For the Health example, execution groups are the operational unit:
 
-## 22. Go-live checklist
+```text
+health_full_refresh   50
+health_scd2           20
+health_scd1           20
+health_debezium       10
+```
+
+They are not separate repos.
+
+---
+
+## 21. Prove representative live paths before enabling all 100
+
+Do not switch all 100 on during the first Fabric test.
+
+Recommended DEV proof order:
+
+1. one FULL + REPLACE dataset;
+2. one WATERMARK + SCD1 dataset;
+3. one WATERMARK + SCD2 dataset;
+4. one Debezium CDC + UPSERT dataset;
+5. retry/idempotency drill;
+6. reconciliation failure drill;
+7. delete behavior where applicable;
+8. small mixed execution group;
+9. controlled concurrency increase;
+10. only then enable the remaining metadata-equivalent datasets.
+
+Retain exact evidence for each representative path.
+
+---
+
+## 22. Debezium live evidence checklist
+
+For a real Debezium dataset prove:
+
+```text
+source/table -> topic mapping
+key extraction
+partition/offset ordering
+before/after update handling
+tombstone/delete handling
+duplicate/replay behavior
+checkpoint ownership
+consumer outage/restart recovery
+source outage recovery
+schema evolution behavior
+Fabric target apply result
+reconciliation/checkpoint result
+exact released framework/domain identity
+```
+
+The source-controlled capability profile is necessary, but it is not sufficient evidence.
+
+---
+
+## 23. DEV -> TEST/UAT -> PROD promotion
+
+Promotion model:
+
+```text
+PR + CI green
+  -> immutable domain/framework artifacts
+  -> DEV deployment
+  -> representative integration evidence
+  -> TEST/UAT deployment
+  -> automated/business validation
+  -> approval
+  -> PROD deployment
+  -> smoke + reconciliation
+```
+
+Promote the same tested release identity. Do not build a new PROD-only wheel.
+
+Runtime watermarks/run history/quarantine/leases/reprocess state remain environment-local.
+
+---
+
+## 24. Go-live checklist
 
 Before production enablement confirm:
 
-- [ ] repo ownership/security boundary is correct;
-- [ ] exact framework version is pinned;
-- [ ] all dataset configs pass framework schema validation;
-- [ ] PK/watermark/order semantics are source-owner confirmed;
-- [ ] delete fidelity is documented for every pattern;
-- [ ] SCD2 claims do not exceed source history fidelity;
+- [ ] repository boundary matches ownership/security/release reality;
+- [ ] immutable framework release is exact-pinned;
+- [ ] every DatasetConfig passes project validation;
+- [ ] every dataset has a reviewed semantic selection;
+- [ ] PK/business key is source-owner confirmed;
+- [ ] watermark/order/replay assumptions are confirmed;
+- [ ] delete visibility is explicitly documented;
+- [ ] SCD2 claims do not exceed capture fidelity;
+- [ ] Debezium provider profile matches the real source path;
 - [ ] secrets are outside Git;
-- [ ] DEV/TEST/PROD use separate environment-local runtime state;
-- [ ] Environment contains immutable framework/domain wheels and is published;
-- [ ] thin runtime driver uses metadata, not copied per-table algorithm code;
-- [ ] representative FULL/SCD1/SCD2/CDC paths have approved Fabric integration evidence;
+- [ ] DEV/TEST/PROD keep separate runtime state;
+- [ ] immutable framework/domain wheels are installed/published;
+- [ ] representative FULL/SCD1/SCD2/CDC live paths have retained evidence;
 - [ ] retry/replay/reconciliation failure behavior is tested;
-- [ ] concurrency/capacity limits are measured before enabling all 100 tables;
-- [ ] release manifest and environment deployment plans are retained;
-- [ ] production promotion has approval and rollback procedure.
+- [ ] capacity/concurrency has been measured before full enablement;
+- [ ] release manifest/deployment plans are retained;
+- [ ] promotion approval and rollback procedure exist.
 
-## 23. Current reference limitation
+---
 
-As of 2026-08-30, this repository itself still has not executed a real Customer deployment into a Fabric workspace. The checked-in deployment bindings are reference values and no production Pipeline/Notebook item is yet proven here.
+## 25. Evidence boundary of this reference repository
 
-This runbook defines the procedure to perform that proof; it must not be cited as evidence that the external Fabric integration has already happened.
+As of 2026-08-30:
 
-When a real approved Fabric integration is executed, update `docs/CURRENT_STATUS.md` with the exact workspace/environment proof, release identity and retained evidence references.
+```text
+v0.3.0 released-wheel integration        proven in CI
+100-row manifest/config generation        proven in CI
+exact 0.4-next project contract           intended CI gate for this change
+real Customer Fabric workspace execution  not yet retained
+live Debezium/Kafka execution              not yet retained
+100-table runtime capacity                 not yet retained
+production release                         not yet created
+```
+
+Do not cite this runbook itself as evidence that a live integration happened.
+
+When real approved Fabric proof is executed, update `docs/CURRENT_STATUS.md` with exact release/workspace/evidence references and keep the claims narrowly scoped to what was actually observed.
