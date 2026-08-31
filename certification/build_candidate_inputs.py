@@ -45,6 +45,8 @@ from fabric_data_framework.evidence.integration_runner import (
     IntegrationCheckPhysicalBinding,
 )
 
+from review_binding import load_control_plane_review_binding
+
 
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA64 = re.compile(r"^[0-9a-f]{64}$")
@@ -110,9 +112,16 @@ def _artifact_inputs(project_root: Path, extension_wheel: Path) -> dict[str, Pat
     return result
 
 
-def _validate_release_inputs(project_root: Path, manifest, extension_wheel: Path) -> tuple[bool, list[str]]:
+def _validate_release_inputs(
+    project_root: Path,
+    manifest,
+    extension_wheel: Path,
+    *,
+    environment: str,
+    control_plane_profile: str,
+) -> tuple[bool, list[str]]:
     dataset_ids = {item.dataset_id for item in load_dataset_configs(project_root / "config/datasets")}
-    cert_root = project_root / "config/certification"
+    cert_root = project_root / "config" / "certification"
 
     plan_path = cert_root / "business-path-plan.json"
     plan = load_approved_business_path_certification_plan(plan_path, release_manifest=manifest)
@@ -166,9 +175,17 @@ def _validate_release_inputs(project_root: Path, manifest, extension_wheel: Path
     external = ControlPlaneExternalEvidence.from_json_file(
         integration / "control-plane-external-evidence.json"
     )
+    review_binding = load_control_plane_review_binding(
+        integration / "control-plane-external-evidence-review.json"
+    )
     blockers: list[str] = []
     if not external.complete:
         blockers.append("control_plane_external_evidence_incomplete")
+    elif not review_binding.matches(
+        environment=environment,
+        control_plane_profile=control_plane_profile,
+    ):
+        blockers.append("control_plane_external_evidence_not_review_bound")
     controller = fault_config.fault_payload.get("controller_url")
     if not isinstance(controller, str) or ".invalid" in controller:
         blockers.append("warehouse_real_fault_controller_not_configured")
@@ -197,7 +214,13 @@ def main() -> int:
         build_id=f"candidate:{args.candidate_git_sha}:customer:{args.customer_git_sha}",
         artifacts=artifacts,
     )
-    live_ready, blockers = _validate_release_inputs(project_root, manifest, args.extension_wheel)
+    live_ready, blockers = _validate_release_inputs(
+        project_root,
+        manifest,
+        args.extension_wheel,
+        environment=args.environment,
+        control_plane_profile=args.control_plane_profile,
+    )
 
     runner = ApprovedIntegrationRunnerConfig(
         environment=EnvironmentName(args.environment),
