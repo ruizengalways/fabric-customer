@@ -229,7 +229,7 @@ The reference remains:
 50  FULL      -> REPLACE
 20  WATERMARK -> SCD2
 20  WATERMARK -> SCD1
-10  CDC       -> UPSERT
+10  CDC       -> UPSERT (Debezium)
 ```
 
 Validated static summary:
@@ -244,7 +244,7 @@ capture engines: SPARK=90, EXTERNAL_CDC=10
 apply engines: SPARK=100
 ```
 
-This is onboarding/configuration scale proof, not runtime capacity proof.
+This is onboarding/configuration scale proof, not runtime capacity proof. Debezium live topic mapping/offset/replay/delete behavior still requires real integration evidence if promoted into required GA scope.
 
 ## Current evidence boundary
 
