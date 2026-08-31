@@ -10,8 +10,31 @@ Last updated: 2026-08-31
 - Phase 3 enterprise delivery spine participation: **COMPLETE AND MERGED**.
 - Enterprise bulk-onboarding/domain-bootstrap reference: **IMPLEMENTED**.
 - Framework 0.4-next project-contract adoption: **COMPLETE AND MERGED**.
-- Framework 0.4 customer certification-input producer: **IMPLEMENTED ON FEATURE BRANCH; CI/PR PROOF PENDING**.
+- Framework 0.4 customer certification-input producer: **PR CI PROVEN / PENDING MERGE — PR #10**.
 - Customer production runtime dependency upgrade: **WAITING FOR IMMUTABLE FRAMEWORK `v0.4.0` RELEASE**.
+
+## PR #10 certification-input implementation proof
+
+The implementation head `51d8d918b8e73a5b38c20e810117b854f8080b5b` passed both independent PR workflows before this documentation checkpoint:
+
+```text
+customer-ci                       33353622482  SUCCESS
+  source-metadata-and-wheel                       SUCCESS
+  exact-framework-integration                    SUCCESS
+  framework-next-project-contract                SUCCESS
+  released v0.3.0 cross-package tests            12 passed
+
+customer-certification-contract   33353622537  SUCCESS
+  framework certification SHA                    689bc1097474b26866af8675e32592e4cf65fa1f
+  certification DatasetConfig count              8
+  extension wheel build                           SUCCESS
+  typed customer input builder                    SUCCESS
+  live_prerequisites_configured                   false
+  blocker: control_plane_external_evidence_incomplete
+  blocker: warehouse_real_fault_controller_not_configured
+```
+
+This is **PR CI proof**, not merged-main proof and not live Fabric proof. The static certification run used dummy candidate identities solely to validate schemas and fail-closed packaging. Its generated domain release hash and extension-wheel build are not release/candidate evidence.
 
 ## Merged project-contract baseline
 
@@ -30,20 +53,6 @@ All three CI proof lanes passed before merge:
 source-metadata-and-wheel        SUCCESS
 exact-framework-integration      SUCCESS
 framework-next-project-contract  SUCCESS
-```
-
-Observed validation details:
-
-```text
-released v0.3.0 wheel SHA256 verification: PASS
-Customer cross-package tests: 8 passed
-canonical documentation consistency: 5 documents validated
-Customer root project-validate: PASS
-Health project-init: PASS
-Health generated DatasetConfig: 100
-Health generated semantic selections: 100
-Health project-validate: PASS
-Health validation JSON reports: retained as CI artifact for the PR run
 ```
 
 This baseline is source/CI proof. It is not live Fabric/provider/capacity evidence.
@@ -126,7 +135,7 @@ retry.idempotency
 reconciliation.fail_closed
 ```
 
-The business driver now resets bounded source/target/progress/history certification tables before observation and cleans them afterward. It returns only mutation receipts. Observers read actual database state. Customer extensions never build release-readiness or integration PASS results.
+The business driver resets bounded source/target/progress/history certification tables before observation and cleans them afterward. It returns only mutation receipts. Observers read actual database state. Customer extensions never build release-readiness or integration PASS results.
 
 ## Exact customer input producer
 
@@ -251,10 +260,10 @@ real Fabric/provider/runtime PASS
 
 ## Exact next implementation sequence
 
-1. Finish this customer certification-input PR, run all Customer CI plus the new certification-contract workflow, squash merge and independently verify main.
-2. Update the framework certification consumer/proof path only if CI exposes an exact contract mismatch; do not loosen fail-closed rules.
-3. Replace the two deliberate live placeholders with reviewed real enterprise evidence/fault infrastructure in a separate exact customer SHA.
-4. Produce `business-path-inputs-<customer SHA>` for the selected framework candidate.
+1. Finish PR #10 final documentation/contract CI, squash merge, then independently verify both workflows on Customer `main`.
+2. Replace the two deliberate live placeholders with reviewed real enterprise evidence/fault infrastructure in a separate exact customer SHA.
+3. Produce `business-path-inputs-<customer SHA>` for the exact selected framework candidate only when real physical inputs are available.
+4. Hard-bind the same customer/domain `domain_release_hash` through final framework release proof/candidate certification before candidate freeze.
 5. Only after producer paths and real prerequisites are ready, select/freeze one exact framework candidate.
 6. Run framework `candidate-integration-evidence.yml` against the protected real environment.
 7. Run framework `candidate-business-path-evidence.yml` for all five representative gates.
