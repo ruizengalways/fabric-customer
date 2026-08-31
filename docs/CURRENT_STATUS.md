@@ -2,6 +2,52 @@
 
 Last updated: 2026-08-31
 
+## New-conversation recovery checkpoint
+
+Start here when resuming this project in a new conversation. This section records the latest **substantive** cross-repo baselines; documentation-only checkpoints remain separate from code baselines.
+
+```text
+Framework substantive code baseline
+  PR #94 merge SHA             abc8b3a2b80b3f6babf88fdc2347a3bfe69be356
+  final PR CI                  33357795244
+  main CI                      33357846835
+  tests                        738
+  candidate-capable wheel SHA  d763cd4410a69ff6a83c492f3a546d096502c96c87eeddb37c2ae9404557e7b7
+  candidate frozen             false
+
+Framework documentation checkpoint
+  PR #95 merge SHA             4006afb409c81c5510690c8c4dbeadd5e002fd0b
+  final PR CI                  33363382792
+  main CI                      33363508468
+  tests                        740
+
+Customer substantive compatibility baseline
+  PR #12 merge SHA             9ddc11405de329fb647fb21b1217d1015e0fa3f5
+  PR customer-ci               33363980824 SUCCESS
+  PR certification-contract    33363980826 SUCCESS
+  main customer-ci             33364050484 SUCCESS
+  main certification-contract  33364050481 SUCCESS
+  released v0.3 tests          14 passed
+  certification framework SHA  abc8b3a2b80b3f6babf88fdc2347a3bfe69be356
+  production framework pin     fabric-data-framework==0.3.0
+```
+
+Current release truth remains:
+
+```text
+Framework public release                    v0.3.0
+Framework 0.4 source                         feature-frozen / unreleased
+Framework release_allowed                    false
+Framework exact candidate                    not frozen
+Framework ordinary readiness blockers        15
+selected-candidate Customer input artifact   not retained
+certified integration evidence               not produced
+five live business-path proofs               not retained
+immutable Framework v0.4.0                   not published
+```
+
+The next honest work is **real enterprise environment preparation**, not more synthetic proof code: obtain reviewed control-plane external evidence and an approved real Warehouse/session ambiguous-COMMIT fault controller, then select/freeze a new exact Framework candidate and execute the retained-evidence chain.
+
 ## Current phase
 
 - Phase 0 canonical architecture: **COMPLETE**.
@@ -11,8 +57,28 @@ Last updated: 2026-08-31
 - Enterprise 100-table onboarding/domain-bootstrap reference: **IMPLEMENTED**.
 - Framework 0.4 project-contract adoption: **COMPLETE AND MERGED**.
 - Framework 0.4 customer certification-input producer: **MERGED + MAIN CI PROVEN — PR #10**.
+- Framework 0.4 certification compatibility alignment: **MERGED + MAIN CI PROVEN — PR #12**.
 - Framework 0.4 domain-release proof binding: **COMPLETED IN FRAMEWORK PR #92; cleanup PR #94**.
 - Customer production runtime dependency upgrade: **WAITING FOR IMMUTABLE FRAMEWORK v0.4.0**.
+
+## Merged compatibility alignment — PR #12
+
+PR #12 moves only the isolated 0.4 certification-contract lane to the current feature-frozen Framework code baseline. It does not change Customer production runtime semantics or dependencies.
+
+```text
+fabric-customer PR #12
+merge SHA                    9ddc11405de329fb647fb21b1217d1015e0fa3f5
+final PR head                440cf23c81c953a15e1b698974eddf1f68a1f434
+PR customer-ci               33363980824 SUCCESS
+PR certification-contract    33363980826 SUCCESS
+main customer-ci             33364050484 SUCCESS
+main certification-contract  33364050481 SUCCESS
+released v0.3 tests          14 passed
+certification framework SHA  abc8b3a2b80b3f6babf88fdc2347a3bfe69be356
+production runtime pin       fabric-data-framework==0.3.0
+```
+
+The main certification-contract run installed exact Framework PR #94 source, built the bounded Customer certification extension wheel, generated the typed input bundle, and retained the deliberate two-blocker fail-closed state. The independent `customer-ci` main run also kept the immutable v0.3.0 integration lane, source/docs lane and 100-table project-contract lane green.
 
 ## Released runtime baseline
 
@@ -251,7 +317,7 @@ This is onboarding/configuration scale proof, not runtime capacity proof. Debezi
 ```text
 released Customer runtime with Framework v0.3.0              PROVEN by release/integration CI
 0.4 project-contract compatibility                            exact-SHA static proof
-0.4 certification-input schema compatibility                 exact-SHA static proof
+0.4 certification-input schema compatibility                 MERGED + MAIN CI PROVEN — PR #12
 customer certification producer contract                     MERGED + MAIN CI PROVEN
 framework exact domain-release identity chain                MERGED + MAIN CI PROVEN (#92/#94)
 selected/frozen Framework 0.4 candidate                       NOT YET

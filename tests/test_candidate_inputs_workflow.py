@@ -3,6 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CURRENT_CERTIFICATION_FRAMEWORK_SHA = "abc8b3a2b80b3f6babf88fdc2347a3bfe69be356"
+CUSTOMER_PR12_MERGE_SHA = "9ddc11405de329fb647fb21b1217d1015e0fa3f5"
 
 
 def test_candidate_input_workflow_is_manual_exact_input_packaging_only():
@@ -84,3 +85,20 @@ def test_current_status_cannot_regress_from_merged_candidate_input_baseline():
     assert "IMPLEMENTED ON FEATURE BRANCH; CI/PR PROOF PENDING" not in status
     assert "control_plane_external_evidence_incomplete" in status
     assert "warehouse_real_fault_controller_not_configured" in status
+
+
+def test_current_status_locks_merged_pr12_cross_repo_recovery_baseline():
+    status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
+    assert "New-conversation recovery checkpoint" in status
+    assert "MERGED + MAIN CI PROVEN — PR #12" in status
+    assert CUSTOMER_PR12_MERGE_SHA in status
+    assert "33363980824 SUCCESS" in status
+    assert "33363980826 SUCCESS" in status
+    assert "33364050484 SUCCESS" in status
+    assert "33364050481 SUCCESS" in status
+    assert "14 passed" in status
+    assert "abc8b3a2b80b3f6babf88fdc2347a3bfe69be356" in status
+    assert "4006afb409c81c5510690c8c4dbeadd5e002fd0b" in status
+    assert "15" in status
+    assert "candidate frozen             false" in status
+    assert "selected-candidate Customer input artifact   not retained" in status
