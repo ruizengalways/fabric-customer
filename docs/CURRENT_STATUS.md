@@ -45,6 +45,32 @@ Customer main certification-contract CI    33368266793 SUCCESS
 production Framework dependency            fabric-data-framework==0.3.0
 ```
 
+### Compatibility / recovery anchors retained by CI
+
+These historical anchors remain in the canonical status because Customer CI uses them to prevent cross-repo recovery information from silently regressing while newer Framework capabilities are added.
+
+```text
+100-table enterprise onboarding reference  retained
+project CLI contracts                      project-init / project-validate
+capture reference                          includes Debezium
+historical framework-next project SHA      148e02e3fff7861f238296e7554815a6fd49dd0a
+Framework documentation checkpoint PR #95  4006afb409c81c5510690c8c4dbeadd5e002fd0b
+
+Customer candidate-input producer           MERGED + MAIN CI PROVEN — PR #10
+PR #10 merge SHA                            cda90f1c02fc9606aa64d2d1bd13f2ab89628aab
+
+Customer certification alignment            MERGED + MAIN CI PROVEN — PR #12
+PR #12 merge SHA                            9ddc11405de329fb647fb21b1217d1015e0fa3f5
+PR #12 customer-ci                          33363980824 SUCCESS
+PR #12 certification-contract               33363980826 SUCCESS
+PR #12 main customer-ci                     33364050484 SUCCESS
+PR #12 main certification-contract          33364050481 SUCCESS
+released v0.3 tests                         14 passed
+certification Framework SHA                 abc8b3a2b80b3f6babf88fdc2347a3bfe69be356
+candidate frozen             false
+selected-candidate Customer input artifact   not retained
+```
+
 **Do not change the production dependency to 0.4 development source.** The normal Customer runtime remains `fabric-data-framework==0.3.0` until an immutable Framework v0.4.0 is actually published and the release policy permits migration.
 
 ## Current release truth
@@ -269,7 +295,7 @@ automated evidence-based certification
   = machine-verifiable retained proof chain
 ```
 
-Certification is a Framework release activity. Normal future customer projects do not repeat the entire Framework release certification every day; they consume an immutable released version and use normal `init / validate / dry-run / deploy / run` workflows.
+Certification is a Framework release activity. Normal future customer projects do not repeat the entire Framework release certification every day; they consume an immutable released version and use normal `project-init / project-validate / dry-run / deploy / run` workflows. The 100-table reference continues to cover mixed FULL, watermark/SCD and Debezium-style onboarding patterns.
 
 ## Company Fabric operating sequence now
 
