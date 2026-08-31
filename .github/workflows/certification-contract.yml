@@ -9,7 +9,9 @@ permissions:
   contents: read
 
 env:
-  CERTIFICATION_FRAMEWORK_SHA: 689bc1097474b26866af8675e32592e4cf65fa1f
+  # Current 0.4 code baseline after framework PR #94. This is a source/CI
+  # compatibility lane only; Customer production remains pinned to v0.3.0.
+  CERTIFICATION_FRAMEWORK_SHA: abc8b3a2b80b3f6babf88fdc2347a3bfe69be356
 
 jobs:
   certification-contract:
