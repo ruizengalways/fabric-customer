@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fabric-customer-certification-extensions"
+version = "0.4.0.dev0"
+description = "Bounded customer-owned extensions for exact Fabric release certification"
+requires-python = ">=3.11"
+dependencies = [
+  "fabric-data-framework>=0.4.0,<0.5",
+  "SQLAlchemy>=2.0,<2.1",
+]
+
+[project.entry-points."fabric_data_framework.capture_observers"]
+"cert.capture-observer" = "fabric_customer_certification_extensions:observe_capture"
+
+[project.entry-points."fabric_data_framework.spark_execution_data"]
+"cert.spark-execution-data" = "fabric_customer_certification_extensions:spark_execution_data"
+
+[project.entry-points."fabric_data_framework.warehouse_mutations"]
+"cert.warehouse-mutation" = "fabric_customer_certification_extensions:warehouse_mutation"
+
+[project.entry-points."fabric_data_framework.warehouse_commit_fault_injectors"]
+"cert.warehouse-fault" = "fabric_customer_certification_extensions:warehouse_fault_injector"
+
+[project.entry-points."fabric_data_framework.business_path_observers"]
+"cert.business-path-observer" = "fabric_customer_certification_extensions:observe_business_path"
+
+[project.entry-points."fabric_data_framework.business_path_drivers"]
+"cert.business-path-driver" = "fabric_customer_certification_extensions.business_driver:drive_business_path"
+
+[project.entry-points."fabric_data_framework.applys"]
+"cert.noop-apply" = "fabric_customer_certification_extensions:forbidden_noop_apply"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

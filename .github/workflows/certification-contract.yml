@@ -1,0 +1,80 @@
+name: customer-certification-contract
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  CERTIFICATION_FRAMEWORK_SHA: 689bc1097474b26866af8675e32592e4cf65fa1f
+
+jobs:
+  certification-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Customer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Checkout exact certification framework source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ruizengalways/fabric-data-framework
+          ref: ${{ env.CERTIFICATION_FRAMEWORK_SHA }}
+          path: framework-certification
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.13"
+
+      - name: Install exact certification framework source
+        run: |
+          python -m pip install ./framework-certification
+          python -m pip install "setuptools>=77"
+          python -m pip check
+
+      - name: Build bounded certification extension wheel
+        run: |
+          mkdir -p build/certification-dist
+          python -m pip wheel certification/extensions \
+            --no-deps --no-build-isolation \
+            -w build/certification-dist
+          test -f build/certification-dist/fabric_customer_certification_extensions-0.4.0.dev0-py3-none-any.whl
+
+      - name: Validate typed certification input bundle
+        run: |
+          python certification/build_candidate_inputs.py \
+            --extension-wheel build/certification-dist/fabric_customer_certification_extensions-0.4.0.dev0-py3-none-any.whl \
+            --output build/certification-inputs \
+            --customer-git-sha "${GITHUB_SHA}" \
+            --candidate-git-sha 1111111111111111111111111111111111111111 \
+            --candidate-wheel-sha256 2222222222222222222222222222222222222222222222222222222222222222 \
+            --framework-version 0.4.0 \
+            --environment DEV \
+            --workspace-id 00000000-0000-0000-0000-000000000001 \
+            --item-read-id 00000000-0000-0000-0000-000000000011 \
+            --pipeline-item-id 00000000-0000-0000-0000-000000000012 \
+            --copy-job-id 00000000-0000-0000-0000-000000000013 \
+            --spark-job-id 00000000-0000-0000-0000-000000000014 \
+            --control-plane-profile fabric_sql_database_v1
+
+      - name: Assert fail-closed live boundary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          value = json.loads(Path("build/certification-inputs/INPUTS.json").read_text())
+          assert value["candidate_git_sha"] == "1" * 40
+          assert value["candidate_wheel_sha256"] == "2" * 64
+          assert value["live_prerequisites_configured"] is False
+          assert value["live_prerequisite_blockers"] == [
+              "control_plane_external_evidence_incomplete",
+              "warehouse_real_fault_controller_not_configured",
+          ]
+          assert Path("build/certification-inputs/release-manifest.json").is_file()
+          assert Path("build/certification-inputs/runner-config.json").is_file()
+          assert Path("build/certification-inputs/project/config/datasets/cert.full_replace.json").is_file()
+          PY
