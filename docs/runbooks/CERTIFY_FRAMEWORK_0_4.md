@@ -1,14 +1,184 @@
-# Runbook — Produce Exact Customer Inputs for Framework 0.4 Certification
+# Runbook — Framework 0.4 Certification from fabric-customer
 
-Status: source/CI contract implemented; live prerequisites intentionally incomplete
+Status: bounded company-Fabric test path ready; full evidence-based release prerequisites intentionally incomplete
 
 Last updated: 2026-08-31
 
-This runbook covers the Customer/domain side of Framework 0.4 release certification. It does **not** replace the normal Customer runtime dependency, which remains `fabric-data-framework==0.3.0` until immutable v0.4.0 is released.
+This runbook explains the **two different certification lanes** now supported by the project. Do not confuse the bounded company-Fabric Notebook test with the full release-evidence chain.
 
-## 1. What this runbook produces
+Customer production runtime remains exactly:
 
-Customer owns an isolated certification input slice:
+```text
+fabric-data-framework==0.3.0
+```
+
+until immutable Framework v0.4.0 is actually published and release governance permits migration.
+
+## 1. Current Framework identities
+
+Current substantive Framework source baseline:
+
+```text
+PR #99 merge SHA        303683729c4915d78200d463a6def01c8de9eae6
+PR #99 PR CI            33381590800 SUCCESS
+PR #99 main CI          33381666892 SUCCESS
+Python 3.11 tests       753 passed
+```
+
+The exact candidate-capable artifact recommended for the **first bounded company test** is:
+
+```text
+main run                33381666892
+artifact ID             9753976212
+wheel                    fabric_data_framework-0.4.0-py3-none-any.whl
+wheel SHA256             0638c95c19ebcc43ec4ec462b7f960a164209874223517e3f74b951264b0eaf6
+candidate Git SHA        303683729c4915d78200d463a6def01c8de9eae6
+```
+
+The Customer `.github/workflows/certification-contract.yml` still installs exact historical Framework source:
+
+```text
+abc8b3a2b80b3f6babf88fdc2347a3bfe69be356
+```
+
+That SHA is the **Customer certification-contract compatibility baseline**, not the current Framework main code baseline. It remains pinned so the Customer portable contract lane has a stable exact source identity while the 0.4 development branch continues to evolve.
+
+## 2. Choose the correct lane
+
+### Lane A — bounded company-Fabric Notebook validation
+
+Use now when GitHub cannot or should not authenticate into the corporate Fabric tenant.
+
+Canonical Customer wrapper:
+
+```text
+docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
+```
+
+Canonical Framework executable runbook:
+
+```text
+fabric-data-framework/docs/human/FIRST_FABRIC_NOTEBOOK_TEST.md
+```
+
+This lane executes real bounded checks in an isolated DEV workspace, then records observed `PASS / FAIL / NOT RUN` values in `manual-certification.json`.
+
+No candidate freeze is required for this pre-freeze compatibility/smoke test.
+
+### Lane B — full evidence-based release certification
+
+Use later when the protected real environment and all enterprise prerequisites exist.
+
+```text
+exact frozen candidate
+  -> exact Customer certification inputs
+  -> candidate-integration-evidence
+  -> candidate-business-path-evidence
+  -> candidate-release-proofs
+  -> candidate-certification blockers=[] / release_ready=true
+  -> framework-release exact already-certified bytes
+```
+
+This remains the only lane consumed by the current strict Framework `release.yml`.
+
+## 3. Lane A — what to test first
+
+The bounded company-Fabric test should cover:
+
+```text
+exact wheel/CANDIDATE identity verification
+Lakehouse write/read smoke
+FULL -> REPLACE + destructive guard
+WATERMARK -> SCD1
+WATERMARK -> SCD2
+retry / idempotency
+reconciliation fail-closed
+manual-certification.json generation
+```
+
+If Warehouse resources/permissions are not genuinely available, retain:
+
+```text
+warehouse.commit = NOT_RUN
+warehouse.ambiguous_commit = NOT_RUN
+```
+
+Do not create synthetic PASS evidence.
+
+Framework PR #99 hardened the Notebook form so it uses Fabric-compatible widgets and explicit Dropdown values:
+
+```text
+NOT RUN
+PASS
+FAIL
+```
+
+The form **records** observations. It does not execute the underlying test.
+
+Admin Override may accept missing/unavailable/export-restricted coverage, but an executed FAIL remains explicitly retained. The normal policy is to investigate a known functional failure rather than use override to conceal it.
+
+## 4. Lane A — exact artifact transport
+
+Download from Framework main CI run `33381666892`:
+
+```text
+framework-wheel-303683729c4915d78200d463a6def01c8de9eae6
+```
+
+Keep together:
+
+```text
+fabric_data_framework-0.4.0-py3-none-any.whl
+CANDIDATE.json
+SHA256SUMS
+```
+
+`CANDIDATE.json` allows Framework to auto-resolve:
+
+```text
+framework_version
+candidate_git_sha
+wheel SHA256
+```
+
+so the corporate operator does not need to retype long hashes.
+
+The Notebook test should additionally hash the actual wheel bytes and assert they match `CANDIDATE.json` before semantic testing.
+
+## 5. Lane A — Admin Override / GitHub admin record
+
+The Notebook form may create:
+
+```text
+status = CERTIFIED
+admin_override = true
+override_reason = required
+missing_fields = retained
+```
+
+This is an explicit governance decision. It does not manufacture unexecuted evidence.
+
+The Framework also has:
+
+```text
+.github/workflows/candidate-admin-certification.yml
+```
+
+It does not authenticate to corporate Fabric. If a GitHub-side exact administrator record is wanted, supply:
+
+```text
+candidate_run_id = 33381666892
+override_reason
+confirm_admin_override = true
+```
+
+GitHub independently resolves/verifies the exact candidate identity from its own artifact.
+
+The current Framework release workflow does not consume this manual/admin record as a substitute for full evidence-based readiness.
+
+## 6. Lane B — Customer-owned exact certification input slice
+
+For the full release lane, Customer owns:
 
 ```text
 certification/project/config/datasets/
@@ -31,70 +201,23 @@ Warehouse commit/recovery
 Warehouse ambiguous-COMMIT fault drill
 ```
 
-The normal CRM project remains separate.
+The normal CRM/domain project remains separate.
 
-Customer code supplies bounded facts or controlled mutations only. Framework remains the sole PASS authority.
+Customer code supplies bounded facts or controlled mutations only. Framework remains the sole PASS authority in the evidence-based release lane.
 
-## 2. Exact compatibility baseline
+## 7. Lane B — current intentional blockers
 
-`.github/workflows/certification-contract.yml` installs exact Framework source at:
-
-```text
-abc8b3a2b80b3f6babf88fdc2347a3bfe69be356
-```
-
-This is Framework PR #94, the current feature-frozen **code** baseline. It contains the PR #92 customer/domain release-hash binding and PR #94 removal of the obsolete runner-level proof packaging path that lacked `domain_release_hash`.
-
-The CI contract:
-
-```text
-checks out that exact Framework SHA
-installs Framework source
-builds the bounded Customer certification extension wheel
-runs certification/build_candidate_inputs.py with dummy non-live identities
-validates typed DatasetConfig/recipe/plan/scenario/driver contracts
-asserts live_prerequisites_configured=false
-asserts exactly two current external blockers
-```
-
-This is source/CI compatibility proof only. It performs no live Fabric REST call and no real database mutation.
-
-The Customer production dependency remains:
-
-```text
-fabric-data-framework==0.3.0
-```
-
-## 3. Exact identities
-
-Certification binds independent identities:
-
-```text
-framework identity
-  candidate_git_sha
-  candidate_wheel_sha256
-
-customer/domain identity
-  customer_git_sha
-  config_bundle_hash
-  ReleaseManifest.bundle.release_hash
-  exact recipe/scenario/driver/extension hashes
-```
-
-Framework wheel SHA256 and Customer/domain release hash must never be substituted for each other.
-
-Framework PR #92 carries the Customer hash through business-path proof, strict proof merge, candidate certification and final release checks. Framework PR #94 removes the old unbound business-path proof constructor. Customer never authors `ReleaseReadinessProofResult(PASS)` or `IntegrationEvidenceCheckResult(PASS)`.
-
-## 4. Current intentional blockers
-
-Current source deliberately contains:
+Current source deliberately contains incomplete real-enterprise prerequisites:
 
 ```text
 control-plane-external-evidence.json
-  reviewed enterprise evidence references = null
+  reviewed enterprise evidence references = null/incomplete
+
+control-plane-external-evidence-review.json
+  exact review binding = null/incomplete
 
 warehouse-fault-run.json
-  controller_url = https://warehouse-fault-controller.example.invalid
+  controller_url = example.invalid placeholder
 ```
 
 Therefore the typed builder must report:
@@ -106,18 +229,17 @@ live_prerequisite_blockers=
   warehouse_real_fault_controller_not_configured
 ```
 
+If all seven real control-plane evidence references later exist but exact environment/profile review binding is absent or mismatched:
+
+```text
+control_plane_external_evidence_not_review_bound
+```
+
 Do not remove these blockers merely to make CI green.
 
-They can be replaced only by:
+## 8. Lane B — real environment preparation
 
-1. **reviewed real control-plane evidence metadata** for the production-eligible control-plane SQL database; and
-2. an **approved reachable real Warehouse/session fault-controller endpoint** capable of the ambiguous-COMMIT drill.
-
-Passwords, tokens and connection strings remain protected runtime secrets. They must not be committed into the evidence metadata or Customer input artifact.
-
-## 5. Real environment preparation checklist
-
-Before selecting a release candidate for live certification, platform/data engineering must have an isolated certification environment with:
+Before selecting/freeze of a release candidate, platform/data engineering must have an isolated protected certification environment with the required real resources, including as applicable:
 
 ```text
 [ ] Fabric workspace
@@ -128,51 +250,52 @@ Before selecting a release candidate for live certification, platform/data engin
 [ ] production-eligible control-plane SQL database
 [ ] Fabric Warehouse target
 [ ] framework Warehouse marker table
-[ ] bounded certification source tables
-[ ] bounded target/progress/history tables
-[ ] bounded retry/reconciliation control table
+[ ] bounded certification source/target/control tables
 [ ] bounded Copy/Spark landing area
 [ ] approved real ambiguous-COMMIT fault controller
 ```
 
-The input producer does not create these resources.
+The Customer input producer does not create these resources.
 
-The representative Pipeline must run the selected DatasetConfig and persist the durable Framework `DatasetDispatchOutcome`. It must honor the isolated certification control row used for retry/reconciliation drills and write the corresponding target/progress/history state. Fabric `Completed` alone is insufficient.
+Passwords, tokens and connection strings remain runtime secrets and must not be committed into source-controlled evidence metadata or Customer input artifacts.
 
-## 6. What must be reviewed before replacing each placeholder
+## 9. Lane B — control-plane evidence review
 
-### Control-plane external evidence
+Seven arbitrary non-empty strings are not sufficient.
 
-The source-controlled evidence file may contain safe references/identifiers proving the selected database/profile has been reviewed for the Framework control-plane contract. It must not contain credentials.
-
-Before merge, reviewers should be able to answer:
+The real evidence set must be bound using the source-controlled credential-free review record to the exact:
 
 ```text
-which production-eligible control-plane database/profile is being certified?
-what retained enterprise evidence proves that selection?
-are the references stable and safe to retain in a release artifact?
-do they correspond to the same protected certification environment?
+environment
+control_plane_profile
+review_record_reference
+evidence_set_reference
+reviewed_at_utc
 ```
 
-### Warehouse fault controller
+Before merge, reviewers must be able to identify which production-eligible database/profile is being certified and which retained enterprise review accepted it.
 
-The controller endpoint must refer to a real approved service able to induce/coordinate the required provider/session ambiguous-COMMIT condition. Before merge, verify:
+## 10. Lane B — Warehouse fault controller
+
+The endpoint must refer to a real approved service capable of inducing/coordinating the required provider/session ambiguous-COMMIT condition against the exact isolated Warehouse/session under test.
+
+Before use, verify:
 
 ```text
-endpoint is real and reachable from the protected certification runner
-controller acts on the exact Warehouse/session under test
+endpoint is real and reachable from the protected runner
+fault action is bounded to the intended Warehouse/session
 authorization is separate from normal mutation authorization
-session termination / fault action is auditable
-the controller does not return a synthetic PASS decision
+session termination/fault action is auditable
+controller does not return a synthetic PASS decision
 ```
 
-Framework remains responsible for interpreting the resulting provider/runtime evidence.
+Framework interprets the resulting provider/runtime evidence.
 
-## 7. Select/freeze candidate only after prerequisites are ready
+## 11. Lane B — candidate freeze only after prerequisites
 
-Do **not** freeze a Framework candidate simply because main CI produced a wheel.
+Do **not** freeze a Framework candidate merely because main CI produced a wheel or because the bounded Lane A test passed.
 
-When the two real blockers are resolved and the protected environment is ready, explicitly select one **new exact Framework main candidate**. Record:
+Once both real external blockers are resolved and the protected environment is ready, explicitly select one **new exact Framework main candidate** and record:
 
 ```text
 candidate main CI run ID
@@ -180,9 +303,9 @@ candidate source SHA
 exact inner candidate wheel SHA256
 ```
 
-Any Framework code change after selection creates a new candidate and invalidates reuse of exact-candidate evidence.
+Any Framework code change after selection creates a different candidate and invalidates reuse of exact-candidate evidence.
 
-## 8. Produce exact Customer input artifact
+## 12. Lane B — produce exact Customer input artifact
 
 With the exact candidate selected, manually run:
 
@@ -190,7 +313,7 @@ With the exact candidate selected, manually run:
 .github/workflows/candidate-business-path-inputs.yml
 ```
 
-Inputs:
+Inputs include:
 
 ```text
 candidate_run_id
@@ -205,38 +328,7 @@ spark_job_id
 control_plane_profile
 ```
 
-Repository secret used only for authenticated Framework artifact retrieval:
-
-```text
-FRAMEWORK_REPO_TOKEN
-```
-
-The workflow refuses Customer source that is not reachable from Customer `main`.
-
-## 9. Producer verification
-
-The Framework candidate run must be:
-
-```text
-head_sha = candidate_git_sha
-head_branch = main
-event = push
-conclusion = success
-workflow path = .github/workflows/ci.yml
-required Framework jobs = success
-```
-
-The producer downloads only:
-
-```text
-framework-wheel-<candidate SHA>
-```
-
-and verifies `CANDIDATE.json`, `SHA256SUMS`, run attempt, Framework version and exact inner wheel SHA256 before installing those exact bytes.
-
-It then builds/fingerprints the Customer extension wheel and runs the typed input builder.
-
-## 10. Output artifact
+The workflow validates Framework producer provenance and exact wheel bytes before installing them, then fingerprints the Customer extension/configuration bundle.
 
 Successful packaging uploads:
 
@@ -244,20 +336,9 @@ Successful packaging uploads:
 business-path-inputs-<customer SHA>
 ```
 
-with:
+with typed input/config/release-manifest material. This is an **input package**, not evidence that provider checks passed.
 
-```text
-INPUTS.json
-release-manifest.json
-runner-config.json
-project/config/datasets/*.json
-project/config/certification/**
-dist/fabric_customer_certification_extensions-0.4.0.dev0-py3-none-any.whl
-```
-
-`INPUTS.json` records exact Framework/Customer identities and live-prerequisite state. This remains an **input package**, not evidence that any provider check passed.
-
-## 11. Framework live consumers
+## 13. Lane B — live Framework consumers
 
 The same exact Customer artifact is consumed by:
 
@@ -266,13 +347,7 @@ candidate-integration-evidence.yml
 candidate-business-path-evidence.yml
 ```
 
-The integration workflow performs real approved Fabric/control-plane/Warehouse checks. The business-path workflow requires fully certified integration evidence and executes the five representative semantic drills.
-
-Both independently re-check Customer SHA, producer provenance, `ReleaseManifest`, config identity, extension hashes and relevant recipe bytes.
-
-## 12. Five representative business paths
-
-Framework business-path certification must retain proof for:
+The integration workflow performs the approved real Fabric/control-plane/Warehouse checks. The business-path workflow requires certified integration evidence and executes the five representative semantic drills:
 
 ```text
 full.replace
@@ -282,54 +357,37 @@ retry.idempotency
 reconciliation.fail_closed
 ```
 
-The Customer driver/observer never say PASS. Framework's evaluator determines readiness from independent fixture receipts, provider execution facts, durable Framework outcomes and observed target/progress/history state.
+Customer driver/observer code never authors PASS. Framework evaluators determine readiness from retained execution/provider/state evidence.
 
-Cleanup failure means no business-path proof publication.
+## 14. Fail-closed semantics
 
-## 13. Failure semantics
-
-Expected fail-closed outcomes include:
+Expected failures include:
 
 ```text
 candidate wheel hash mismatch          -> fail
 Customer commit not on main            -> fail
-scenario/driver hash mismatch          -> fail
-extension wheel not fingerprinted      -> fail
-physical UUID malformed                -> fail
-control-plane evidence still null      -> live certification blocked
-fault controller example.invalid       -> Warehouse fault drill blocked
+scenario/driver/extension hash mismatch -> fail
+control-plane evidence incomplete      -> release lane blocked
+review binding missing/mismatched      -> release lane blocked
+fault controller example.invalid       -> Warehouse drill blocked
 provider Completed but Framework FAIL  -> no semantic success upgrade
 cleanup failure                         -> no business-path PASS artifact
-Framework/domain release hash mismatch -> candidate proof/certification rejected
+Framework/domain release hash mismatch -> proof/certification rejected
 ```
 
 Never replace a missing real prerequisite with synthetic PASS JSON.
 
-## 14. Exact promotion sequence
-
-```text
-1. keep Customer certification-contract green against current feature-frozen Framework code baseline
-2. provision/review the two real enterprise prerequisites
-3. merge those real non-secret bindings/evidence references in a new exact Customer SHA
-4. explicitly select/freeze one new exact Framework main candidate
-5. run Customer candidate-business-path-inputs for that candidate and exact Customer SHA
-6. run Framework candidate-integration-evidence in the protected real environment
-7. run all five Framework candidate-business-path-evidence drills
-8. run Framework candidate-release-proofs for the same framework wheel + domain release hash
-9. candidate-certify must reach release_ready=true and blockers=[]
-10. Framework release promotes the exact already-certified wheel bytes
-11. only after immutable v0.4.0 exists, migrate Customer production dependency from v0.3.0
-```
-
-No current artifact or green CI run authorizes candidate freeze by itself.
-
-## 15. Current truth
+## 15. Current exact truth
 
 ```text
 Customer production runtime                     fabric-data-framework==0.3.0
-Customer certification producer contract        merged + main CI proven
-certification-contract Framework code baseline  abc8b3a2b80b3f6babf88fdc2347a3bfe69be356
+current Framework substantive code baseline     PR #99 / 303683729c4915d78200d463a6def01c8de9eae6
+first bounded company test artifact             main run 33381666892 / artifact 9753976212
+first bounded company test executed             no
+manual/admin certification record retained      no
+Customer certification-contract Framework SHA   abc8b3a2b80b3f6babf88fdc2347a3bfe69be356
 real control-plane evidence                      missing
+review-bound control-plane evidence              missing
 real Warehouse fault controller                  missing
 selected/frozen Framework candidate              none
 selected-candidate Customer input artifact       none retained
@@ -337,3 +395,13 @@ certified integration evidence                   none retained
 five-gate live business proof                    none retained
 immutable Framework v0.4.0                       not published
 ```
+
+## 16. What to do next
+
+For the current corporate-account situation, go to:
+
+```text
+docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
+```
+
+Do not start the full Lane B sequence yet. The bounded company-Fabric Notebook test is the next honest step.

@@ -102,3 +102,35 @@ def test_current_status_locks_merged_pr12_cross_repo_recovery_baseline():
     assert "15" in status
     assert "candidate frozen             false" in status
     assert "selected-candidate Customer input artifact   not retained" in status
+
+
+def test_first_company_fabric_test_recovery_context_is_locked():
+    status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
+    wrapper = ROOT / "docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md"
+    certification_runbook = ROOT / "docs/runbooks/CERTIFY_FRAMEWORK_0_4.md"
+
+    assert wrapper.is_file()
+    assert certification_runbook.is_file()
+    for token in (
+        "303683729c4915d78200d463a6def01c8de9eae6",
+        "33381666892",
+        "9753976212",
+        "0638c95c19ebcc43ec4ec462b7f960a164209874223517e3f74b951264b0eaf6",
+        "TEST_FRAMEWORK_IN_COMPANY_FABRIC.md",
+        "first company-Fabric test executed            no",
+        "release_allowed                    false",
+        "Framework exact candidate                    not frozen",
+    ):
+        assert token in status
+
+    wrapper_text = wrapper.read_text()
+    assert "candidate-capable, not frozen" in wrapper_text
+    assert "warehouse.commit = NOT_RUN" in wrapper_text
+    assert "warehouse.ambiguous_commit = NOT_RUN" in wrapper_text
+    assert "Dropdowns **record what you observed**" in wrapper_text
+    assert "Authorize exact-candidate release = OFF" in wrapper_text
+
+    certification_text = certification_runbook.read_text()
+    assert "Lane A — bounded company-Fabric Notebook validation" in certification_text
+    assert "Lane B — full evidence-based release certification" in certification_text
+    assert "not the current Framework main code baseline" in certification_text
