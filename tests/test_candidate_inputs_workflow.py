@@ -131,6 +131,6 @@ def test_first_company_fabric_test_recovery_context_is_locked():
     assert "Authorize exact-candidate release = OFF" in wrapper_text
 
     certification_text = certification_runbook.read_text()
-    assert "Lane A — bounded company Fabric Notebook/manual validation" in certification_text
-    assert "Lane B — full automated evidence-based release certification" in certification_text
+    assert "Lane A — bounded company-Fabric Notebook validation" in certification_text
+    assert "Lane B — full evidence-based release certification" in certification_text
     assert "not the current Framework main code baseline" in certification_text
