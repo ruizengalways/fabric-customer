@@ -2,33 +2,33 @@
 
 Reference Customer domain for the Enterprise Microsoft Fabric Data Engineering Platform.
 
-This repository owns Customer-specific source-controlled dataset metadata, semantic capture selections, mappings, business DQ rules, fixtures, domain integration tests and non-secret deployment bindings. Generic capture selection, Bronze normalization, quarantine execution, SCD/apply algorithms, reconciliation, state semantics, capability validation and delivery contracts are consumed from `fabric-data-framework` rather than reimplemented.
+This repository owns Customer-specific source-controlled dataset metadata, semantic capture selections, mappings, business DQ rules, fixtures, domain tests, non-secret deployment bindings and bounded release-certification inputs. Generic capture/apply/control-plane/evidence algorithms remain in `fabric-data-framework`.
 
-## Two framework lanes
+## Framework lanes
 
-The production/release dependency remains immutable:
+The **production/release dependency remains immutable**:
 
 ```text
 fabric-data-framework==0.3.0
 ```
 
-`pyproject.toml`, the released-wheel integration job and Customer release workflow continue to use the published v0.3.0 wheel and checksum. This branch does **not** replace that dependency with Framework `main`.
+`pyproject.toml`, released-wheel CI and Customer release packaging continue to use published v0.3.0. Do not replace this with Framework `main` before immutable v0.4.0 exists.
 
-In parallel, CI has an exact-SHA **framework-next project-contract lane** pinned to:
-
-```text
-fabric-data-framework @ 148e02e3fff7861f238296e7554815a6fd49dd0a
-```
-
-That lane validates the source-controlled Customer project and the 100-table Health reference against the current 0.4-development `project-init` / `project-validate` contract. It is compatibility evidence for an exact source SHA, not an immutable public release and not production Fabric evidence.
-
-A separate **0.4 certification-contract lane** validates the exact customer evidence-input schema against framework SHA:
+The historical **framework-next project-contract lane** remains pinned to:
 
 ```text
-689bc1097474b26866af8675e32592e4cf65fa1f
+148e02e3fff7861f238296e7554815a6fd49dd0a
 ```
 
-That lane builds the bounded certification extension wheel and runs `certification/build_candidate_inputs.py` with non-live test identities. It proves typed input compatibility only. It does not execute Fabric, does not change the v0.3.0 runtime dependency, and does not create PASS evidence.
+It proves project-init/project-validate compatibility for the normal Customer project and 100-table Health fixture. It is static compatibility evidence only.
+
+The separate **0.4 certification-contract lane** tracks the current feature-frozen Framework code baseline:
+
+```text
+abc8b3a2b80b3f6babf88fdc2347a3bfe69be356
+```
+
+That is Framework PR #94, the code baseline after exact customer/domain release-hash binding and removal of the obsolete unbound business-path proof path. The certification lane builds the bounded extension wheel and runs `certification/build_candidate_inputs.py` with non-live identities. It does not execute Fabric, create PASS evidence, freeze a candidate, or change the production v0.3.0 dependency.
 
 ## Current executable Customer slice
 
@@ -43,7 +43,7 @@ crm.customer
   -> target + watermark/state commit sequencing
 ```
 
-The repository now also declares the project-level semantic source of truth:
+Project source of truth:
 
 ```text
 fabric-project.json
@@ -51,19 +51,11 @@ config/datasets/crm.customer.json
 config/capture/semantic-selections.json
 ```
 
-Under the exact framework-next lane, this is checked with:
+A framework-next `project-validate` PASS is static project consistency, not live Fabric certification.
 
-```bash
-fabric-framework project-validate .
-```
+## Enterprise 100-table onboarding reference
 
-A PASS means the source-controlled project is internally valid: DatasetConfig parsing, dependency graph, capture/apply capability compatibility, semantic-selection coverage and semantic overclaim checks passed. It does **not** mean a live Fabric deployment is certified.
-
-## Enterprise project bootstrap / 100-table onboarding
-
-The repo acts as the reference shape for a new domain such as `fabric-health`.
-
-The checked-in scale fixture demonstrates one repo onboarding 100 mixed datasets:
+One domain repo intentionally contains mixed mechanisms:
 
 ```text
 50  FULL      -> REPLACE
@@ -72,123 +64,96 @@ The checked-in scale fixture demonstrates one repo onboarding 100 mixed datasets
 10  CDC       -> UPSERT (Debezium)
 ```
 
-Released v0.3-compatible manifest dry run:
+Repo boundaries follow ownership/security/compliance/release lifecycle, not FULL/WATERMARK/CDC or SCD1/SCD2 implementation choices. Operational grouping belongs in `orchestration.execution_group`.
 
-```bash
-python scripts/scaffold_from_manifest.py \
-  --manifest examples/enterprise_100_table/health_100_tables.csv \
-  --output build/health-preview \
-  --expect-count 100
-```
-
-Exact framework-next project proof:
-
-```bash
-fabric-framework project-init build/health-project --domain health
-
-python scripts/scaffold_from_manifest.py \
-  --manifest examples/enterprise_100_table/health_100_tables.csv \
-  --output build/health-project/config/datasets \
-  --expect-count 100 \
-  --framework-next \
-  --semantic-selections-output build/health-project/config/capture/semantic-selections.json \
-  --write
-
-fabric-framework project-validate build/health-project \
-  --output build/health-project-validation.json
-```
-
-In framework-next mode the 10 declared Debezium datasets explicitly emit:
+The 10 Debezium rows in framework-next mode explicitly select:
 
 ```text
 EXTERNAL_CDC + debezium_kafka_v1 + EXTERNAL progress owner
 ```
 
-and all 100 datasets receive semantic selections. This closes the previous gap where the CSV said “Debezium” but generated metadata only said generic `CDC`.
+This is onboarding/config scale proof, not a 100-table runtime benchmark.
 
 ## Exact Framework 0.4 certification inputs
 
-Framework release certification needs customer-owned WHAT without letting this repo decide PASS. The isolated certification slice is under:
+Customer-owned certification source lives under:
 
 ```text
 certification/project/
 certification/extensions/
 ```
 
-It contains representative FULL/REPLACE, WATERMARK/SCD1, WATERMARK/SCD2, retry/idempotency, reconciliation fail-closed, Copy, Spark and Warehouse recipes. The normal `crm.customer` project remains separate.
+It contains representative FULL/REPLACE, WATERMARK/SCD1, WATERMARK/SCD2, retry/idempotency, reconciliation fail-closed, Copy, Spark and Warehouse inputs. Customer extensions provide bounded facts/mutations only; Framework remains the sole PASS authority.
 
-The manual producer is:
+Manual exact-input producer:
 
 ```text
 .github/workflows/candidate-business-path-inputs.yml
 ```
 
-It authenticates an exact successful framework `main` CI run, verifies the exact retained candidate wheel bytes, builds the fingerprinted customer certification extension wheel and uploads only:
+It authenticates an exact successful Framework main-CI candidate run, verifies the retained candidate wheel bytes, builds the fingerprinted Customer certification extension wheel and uploads:
 
 ```text
 business-path-inputs-<customer SHA>
 ```
 
-The bundle includes `release-manifest.json`, `runner-config.json`, the exact certification project, extension wheel and `INPUTS.json`. It is an input artifact, not provider evidence.
+The bundle includes `INPUTS.json`, `release-manifest.json`, `runner-config.json`, exact certification project files and the extension wheel. This is an **input artifact**, not integration evidence or release readiness proof.
 
-Current source intentionally remains **not live-ready**:
+The two exact release identities remain independent:
+
+```text
+framework candidate wheel SHA256
+!=
+customer ReleaseManifest.bundle.release_hash
+```
+
+Framework evidence workflows independently verify both.
+
+## Current live blockers
+
+Source intentionally remains fail-closed:
+
+```text
+control_plane_external_evidence_incomplete
+warehouse_real_fault_controller_not_configured
+```
+
+Concretely:
 
 ```text
 control-plane external evidence references = null
 Warehouse real fault controller = example.invalid
 ```
 
-Those two blockers must be replaced by reviewed real enterprise inputs before a live certification attempt. See `docs/runbooks/CERTIFY_FRAMEWORK_0_4.md`.
+Replace them only with reviewed real enterprise evidence references and an approved real provider/session fault-controller endpoint. Never replace them with synthetic PASS JSON just to make certification green.
 
-## Repository rule
+No selected/frozen Framework candidate exists, no selected-candidate Customer input artifact is retained, no certified integration artifact exists, and no five-gate live business-path artifact exists.
 
-Framework owns HOW. Domain repositories own WHAT.
-
-Do not create separate repos merely because datasets use FULL, WATERMARK, CDC, SCD1 or SCD2. Split only for a real ownership, security/compliance, data-product or independent release boundary. Operational batches belong in `orchestration.execution_group`.
-
-## Structure
-
-- `fabric-project.json` — framework project layout manifest for the Customer domain.
-- `config/datasets/crm.customer.json` — current executable Customer dataset definition.
-- `config/capture/semantic-selections.json` — source/capture/history semantic declaration.
-- `certification/project/` — isolated customer-owned exact-release certification DatasetConfig/recipe/scenario inputs.
-- `certification/extensions/` — bounded evidence observers/drivers/mutation adapters; no PASS authority.
-- `.github/workflows/candidate-business-path-inputs.yml` — manual exact customer certification-input producer.
-- `examples/enterprise_100_table/` — 100-dataset Health onboarding fixture.
-- `scripts/scaffold_from_manifest.py` — deterministic intake-manifest validator/generator; default v0.3 output plus explicit framework-next mode.
-- `src/fabric_customer/domain.py` — Customer mapping and DQ rules.
-- `deploy/bindings.*.json` — non-secret reference environment binding profiles. The project manifest points `environment_binding_dir` here for backward-compatible adoption.
-- `scripts/validate_metadata.py` — source-only v0.3 release-lane contract.
-- `tests/fixtures/` — tiny deterministic CRM fixtures.
-- `tests/` — domain integration, recovery, delivery-plan and bulk-onboarding contract tests.
-- `docs/runbooks/BUILD_NEW_DOMAIN_PROJECT.md` — end-to-end jumpbox/CI/Fabric promotion runbook.
-- `docs/runbooks/CERTIFY_FRAMEWORK_0_4.md` — exact customer input and live-certification preparation runbook.
-- `docs/CURRENT_STATUS.md` — exact current engineering and evidence state.
-
-## CI model
-
-Customer CI has deliberately different proofs:
+## CI proof model
 
 ```text
 source-metadata-and-wheel
-  -> dependency-free source validation + Customer wheel build
+  -> source validation + Customer wheel
 
 exact-framework-integration
-  -> published v0.3.0 wheel + checksum + Customer tests + release/deployment plan
+  -> immutable v0.3.0 wheel/checksum + Customer tests + release/deployment plan
 
 framework-next-project-contract
-  -> exact pinned project-contract SHA + project-validate + 100-table Health project proof
+  -> exact historical project-contract SHA + project-validate + 100-table static proof
 
 customer-certification-contract
-  -> framework 689bc109... + typed certification input build + fail-closed live blockers
+  -> exact current Framework PR #94 code SHA + typed certification input build
+  -> asserts current real-environment blockers remain fail-closed
 ```
 
-Do not collapse those labels. A framework-next static project PASS is not a released dependency, the certification-contract lane is not live evidence, and neither source lane upgrades the normal Customer runtime dependency.
+These proof classes are deliberately separate. None of the development lanes upgrades the production runtime dependency.
 
-## Start here
+## Structure / start here
 
+- `docs/CURRENT_STATUS.md` — exact current engineering/evidence state and next work.
 - `docs/PROJECT_BLUEPRINT.md` — repository ownership and architecture.
-- `docs/CURRENT_STATUS.md` — exact current state and next work.
-- `docs/runbooks/BUILD_NEW_DOMAIN_PROJECT.md` — how to start a real new domain, validate it, push it through GitHub and then prove it in Fabric.
-- `docs/runbooks/CERTIFY_FRAMEWORK_0_4.md` — how to produce exact customer certification inputs and what must be real before framework live certification.
-- `examples/enterprise_100_table/README.md` — exact 100-table reference commands.
+- `docs/runbooks/BUILD_NEW_DOMAIN_PROJECT.md` — how to start and validate a real new domain.
+- `docs/runbooks/CERTIFY_FRAMEWORK_0_4.md` — exact 0.4 customer input and live-environment certification preparation.
+- `examples/enterprise_100_table/README.md` — 100-table onboarding reference.
+
+Framework owns HOW. Domain repositories own WHAT.
