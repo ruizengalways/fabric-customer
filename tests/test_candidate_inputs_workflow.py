@@ -2,6 +2,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+CURRENT_CERTIFICATION_FRAMEWORK_SHA = "abc8b3a2b80b3f6babf88fdc2347a3bfe69be356"
 
 
 def test_candidate_input_workflow_is_manual_exact_input_packaging_only():
@@ -33,6 +34,13 @@ def test_certification_slice_is_separate_from_released_customer_runtime_pin():
         "cert.warehouse.json",
     }
     assert {path.name for path in dataset_dir.glob("*.json")} == expected
+
+
+def test_certification_contract_tracks_current_framework_code_baseline_only():
+    workflow = (ROOT / ".github/workflows/certification-contract.yml").read_text()
+    assert f"CERTIFICATION_FRAMEWORK_SHA: {CURRENT_CERTIFICATION_FRAMEWORK_SHA}" in workflow
+    assert "689bc1097474b26866af8675e32592e4cf65fa1f" not in workflow
+    assert "fabric-data-framework==0.3.0" in (ROOT / "pyproject.toml").read_text()
 
 
 def test_customer_extensions_cannot_author_readiness_status():
@@ -70,9 +78,8 @@ def test_current_status_cannot_regress_from_merged_candidate_input_baseline():
     status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
     assert "MERGED + MAIN CI PROVEN — PR #10" in status
     assert "cda90f1c02fc9606aa64d2d1bd13f2ab89628aab" in status
-    assert "33353802842" in status
-    assert "33353802887" in status
-    assert "13 passed" in status
+    assert "fabric-data-framework==0.3.0" in status
+    assert CURRENT_CERTIFICATION_FRAMEWORK_SHA in status
     assert "PR CI PROVEN / PENDING MERGE — PR #10" not in status
     assert "IMPLEMENTED ON FEATURE BRANCH; CI/PR PROOF PENDING" not in status
     assert "control_plane_external_evidence_incomplete" in status
