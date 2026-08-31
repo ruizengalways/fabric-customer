@@ -64,3 +64,14 @@ def test_exact_business_path_plan_covers_five_required_gates():
         "retry.idempotency",
         "reconciliation.fail_closed",
     }
+
+
+def test_current_status_cannot_regress_to_unproven_candidate_input_state():
+    status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
+    assert "PR CI PROVEN / PENDING MERGE — PR #10" in status
+    assert "33353622482" in status
+    assert "33353622537" in status
+    assert "12 passed" in status
+    assert "IMPLEMENTED ON FEATURE BRANCH; CI/PR PROOF PENDING" not in status
+    assert "control_plane_external_evidence_incomplete" in status
+    assert "warehouse_real_fault_controller_not_configured" in status
