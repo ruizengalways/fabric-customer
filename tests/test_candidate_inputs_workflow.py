@@ -134,3 +134,15 @@ def test_first_company_fabric_test_recovery_context_is_locked():
     assert "Lane A — bounded company-Fabric Notebook validation" in certification_text
     assert "Lane B — full evidence-based release certification" in certification_text
     assert "not the current Framework main code baseline" in certification_text
+
+
+def test_pr17_merged_main_recovery_checkpoint_is_retained():
+    status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
+    assert "Customer PR #17" in status
+    assert "0e128380e6b4ed54d4f192e0676da397177f6e2f" in status
+    assert "33382409587 SUCCESS" in status
+    assert "33382409601 SUCCESS" in status
+    assert "33382529532 SUCCESS" in status
+    assert "33382529539 SUCCESS" in status
+    assert "33382034631 SUCCESS" in status
+    assert "production Framework dependency fabric-data-framework==0.3.0" in status
