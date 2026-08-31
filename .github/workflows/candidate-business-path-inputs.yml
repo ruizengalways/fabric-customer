@@ -1,0 +1,214 @@
+name: candidate-business-path-inputs
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_run_id:
+        description: "Successful fabric-data-framework main CI run owning the exact wheel"
+        required: true
+        type: string
+      candidate_git_sha:
+        description: "Exact framework candidate source SHA"
+        required: true
+        type: string
+      candidate_wheel_sha256:
+        description: "Exact framework candidate inner wheel SHA256"
+        required: true
+        type: string
+      environment:
+        description: "Environment encoded into the credential-free runner config"
+        required: true
+        default: DEV
+        type: choice
+        options: [DEV, UAT, PROD]
+      workspace_id:
+        description: "Exact Fabric workspace UUID containing the approved certification items"
+        required: true
+        type: string
+      item_read_id:
+        description: "Existing Fabric item UUID used for read-only identity smoke"
+        required: true
+        type: string
+      pipeline_item_id:
+        description: "Existing certification Fabric Pipeline UUID"
+        required: true
+        type: string
+      copy_job_id:
+        description: "Existing certification Fabric Copy Job UUID"
+        required: true
+        type: string
+      spark_job_id:
+        description: "Existing certification Spark Job Definition UUID"
+        required: true
+        type: string
+      control_plane_profile:
+        description: "Production-eligible control-plane SQL profile"
+        required: true
+        default: fabric_sql_database_v1
+        type: choice
+        options: [fabric_sql_database_v1, azure_sql_database_v1]
+
+permissions:
+  contents: read
+
+env:
+  CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+  CANDIDATE_SHA: ${{ inputs.candidate_git_sha }}
+  CANDIDATE_WHEEL_SHA256: ${{ inputs.candidate_wheel_sha256 }}
+  FRAMEWORK_REPO: ruizengalways/fabric-data-framework
+
+concurrency:
+  group: candidate-business-path-inputs-${{ github.sha }}-${{ inputs.candidate_git_sha }}-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate requested exact identities
+        env:
+          FRAMEWORK_REPO_TOKEN: ${{ secrets.FRAMEWORK_REPO_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os, re
+          if re.fullmatch(r"[0-9a-f]{40}", os.environ["CANDIDATE_SHA"]) is None:
+              raise SystemExit("candidate_git_sha must be a lowercase 40-character SHA")
+          if re.fullmatch(r"[0-9a-f]{64}", os.environ["CANDIDATE_WHEEL_SHA256"]) is None:
+              raise SystemExit("candidate_wheel_sha256 must be lowercase SHA256")
+          if not os.environ["CANDIDATE_RUN_ID"].isdigit() or int(os.environ["CANDIDATE_RUN_ID"]) < 1:
+              raise SystemExit("candidate_run_id must be a positive Actions run ID")
+          if not os.environ.get("FRAMEWORK_REPO_TOKEN", "").strip():
+              raise SystemExit("FRAMEWORK_REPO_TOKEN is required to download exact framework artifacts")
+          PY
+
+      - name: Checkout exact customer source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      - name: Require customer input source on main
+        run: |
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          git fetch origin main --no-tags
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
+            echo "Customer certification inputs must be dispatched from a commit reachable from main." >&2
+            exit 1
+          fi
+
+      - name: Verify successful exact framework main CI provenance
+        id: candidate
+        env:
+          GH_TOKEN: ${{ secrets.FRAMEWORK_REPO_TOKEN }}
+        run: |
+          RUN_JSON="$(gh api "/repos/${FRAMEWORK_REPO}/actions/runs/${CANDIDATE_RUN_ID}")"
+          export RUN_JSON
+          python - <<'PY'
+          import json, os
+          run = json.loads(os.environ["RUN_JSON"])
+          if run["head_sha"] != os.environ["CANDIDATE_SHA"] or run["head_branch"] != "main":
+              raise SystemExit("framework candidate run does not bind exact main SHA")
+          if run["event"] != "push" or run["conclusion"] != "success":
+              raise SystemExit("framework candidate run must be a successful main push")
+          if run["path"] != ".github/workflows/ci.yml":
+              raise SystemExit("framework candidate workflow path mismatch")
+          PY
+          echo "run_attempt=$(printf '%s' "${RUN_JSON}" | python -c 'import json,sys; print(json.load(sys.stdin)["run_attempt"])')" >> "${GITHUB_OUTPUT}"
+          gh api "/repos/${FRAMEWORK_REPO}/actions/runs/${CANDIDATE_RUN_ID}/jobs?per_page=100" > framework-jobs.json
+          python - <<'PY'
+          import json
+          jobs = {j["name"]: j["conclusion"] for j in json.load(open("framework-jobs.json"))["jobs"]}
+          required = {"test-python-3.11", "test-python-3.13", "build-wheel", "release-readiness-contract"}
+          if any(jobs.get(name) != "success" for name in required):
+              raise SystemExit(f"framework candidate CI required jobs are not all successful: {jobs}")
+          PY
+
+      - name: Checkout exact framework candidate source for verifier only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ruizengalways/fabric-data-framework
+          ref: ${{ inputs.candidate_git_sha }}
+          path: framework-candidate
+          fetch-depth: 0
+
+      - name: Download and authenticate exact framework wheel
+        env:
+          GH_TOKEN: ${{ secrets.FRAMEWORK_REPO_TOKEN }}
+          CANDIDATE_RUN_ATTEMPT: ${{ steps.candidate.outputs.run_attempt }}
+        run: |
+          rm -rf candidate-dist
+          gh run download "${CANDIDATE_RUN_ID}" --repo "${FRAMEWORK_REPO}" --name "framework-wheel-${CANDIDATE_SHA}" --dir candidate-dist
+          test -f candidate-dist/CANDIDATE.json
+          test -f candidate-dist/SHA256SUMS
+          FRAMEWORK_VERSION="$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+          print(tomllib.loads(Path("framework-candidate/pyproject.toml").read_text())["project"]["version"])
+          PY
+          )"
+          echo "FRAMEWORK_VERSION=${FRAMEWORK_VERSION}" >> "${GITHUB_ENV}"
+          python framework-candidate/src/fabric_data_framework/deployment/candidate_artifact.py verify \
+            --dist-dir candidate-dist \
+            --manifest candidate-dist/CANDIDATE.json \
+            --candidate-sha "${CANDIDATE_SHA}" \
+            --workflow-run-id "${CANDIDATE_RUN_ID}" \
+            --workflow-run-attempt "${CANDIDATE_RUN_ATTEMPT}" \
+            --expected-version "${FRAMEWORK_VERSION}" \
+            --expected-wheel-sha256 "${CANDIDATE_WHEEL_SHA256}"
+          (cd candidate-dist && sha256sum -c SHA256SUMS)
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.13"
+
+      - name: Install exact candidate wheel and build bounded customer extension wheel
+        run: |
+          python -m pip install candidate-dist/*.whl
+          python -m pip install "setuptools>=77"
+          python -m pip wheel certification/extensions --no-deps --no-build-isolation -w certification-dist
+          python -m pip check
+          test -f certification-dist/fabric_customer_certification_extensions-0.4.0.dev0-py3-none-any.whl
+
+      - name: Build typed exact customer certification input bundle
+        run: |
+          python certification/build_candidate_inputs.py \
+            --extension-wheel certification-dist/fabric_customer_certification_extensions-0.4.0.dev0-py3-none-any.whl \
+            --output retained \
+            --customer-git-sha "${GITHUB_SHA}" \
+            --candidate-git-sha "${CANDIDATE_SHA}" \
+            --candidate-wheel-sha256 "${CANDIDATE_WHEEL_SHA256}" \
+            --framework-version "${FRAMEWORK_VERSION}" \
+            --environment "${{ inputs.environment }}" \
+            --workspace-id "${{ inputs.workspace_id }}" \
+            --item-read-id "${{ inputs.item_read_id }}" \
+            --pipeline-item-id "${{ inputs.pipeline_item_id }}" \
+            --copy-job-id "${{ inputs.copy_job_id }}" \
+            --spark-job-id "${{ inputs.spark_job_id }}" \
+            --control-plane-profile "${{ inputs.control_plane_profile }}"
+
+      - name: Re-verify retained exact identities and non-proof boundary
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          inputs = json.loads(Path("retained/INPUTS.json").read_text())
+          if inputs["candidate_git_sha"] != os.environ["CANDIDATE_SHA"]:
+              raise SystemExit("retained candidate SHA mismatch")
+          if inputs["candidate_wheel_sha256"] != os.environ["CANDIDATE_WHEEL_SHA256"]:
+              raise SystemExit("retained candidate wheel mismatch")
+          if inputs["customer_git_sha"] != os.environ["GITHUB_SHA"]:
+              raise SystemExit("retained customer SHA mismatch")
+          for forbidden in ("release-readiness", "integration-evidence.json", "business-path-release-proofs"):
+              if any(forbidden in path.name for path in Path("retained").rglob("*")):
+                  raise SystemExit(f"customer input producer must not emit proof artifact: {forbidden}")
+          print("live_prerequisites_configured=", inputs["live_prerequisites_configured"])
+          print("live_prerequisite_blockers=", inputs["live_prerequisite_blockers"])
+          PY
+
+      - name: Upload exact customer certification inputs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: business-path-inputs-${{ github.sha }}
+          path: retained/
+          if-no-files-found: error
+          retention-days: 90

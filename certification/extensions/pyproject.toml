@@ -28,7 +28,7 @@ dependencies = [
 "cert.business-path-observer" = "fabric_customer_certification_extensions:observe_business_path"
 
 [project.entry-points."fabric_data_framework.business_path_drivers"]
-"cert.business-path-driver" = "fabric_customer_certification_extensions:drive_business_path"
+"cert.business-path-driver" = "fabric_customer_certification_extensions.business_driver:drive_business_path"
 
 [project.entry-points."fabric_data_framework.applys"]
 "cert.noop-apply" = "fabric_customer_certification_extensions:forbidden_noop_apply"
