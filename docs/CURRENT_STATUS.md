@@ -30,6 +30,16 @@ Customer substantive compatibility baseline
   released v0.3 tests          14 passed
   certification framework SHA  abc8b3a2b80b3f6babf88fdc2347a3bfe69be356
   production framework pin     fabric-data-framework==0.3.0
+
+Customer release-hardening checkpoint
+  PR #14 merge SHA             c4097dcc1319f382eb370e9c4d46dcbed7bb383b
+  final PR head                456d3914743337e9c6ce9506fe1a2a7033e858ca
+  PR customer-ci               33367986684 SUCCESS
+  PR certification-contract    33367986688 SUCCESS
+  main customer-ci             33368063581 SUCCESS
+  main certification-contract  33368063590 SUCCESS
+  production framework pin     fabric-data-framework==0.3.0
+  candidate frozen             false
 ```
 
 Current release truth remains:
@@ -46,7 +56,7 @@ five live business-path proofs               not retained
 immutable Framework v0.4.0                   not published
 ```
 
-The next honest work is **real enterprise environment preparation**, not more synthetic proof code: obtain reviewed control-plane external evidence and an approved real Warehouse/session ambiguous-COMMIT fault controller, then select/freeze a new exact Framework candidate and execute the retained-evidence chain.
+The next honest work is **real enterprise environment preparation**, not more synthetic proof code: obtain reviewed control-plane external evidence, bind that reviewed evidence to the exact protected environment/control-plane profile using the source-controlled review record, and obtain an approved real Warehouse/session ambiguous-COMMIT fault controller. Only after both real-environment prerequisites exist may a new exact Framework candidate be selected/frozen and the retained-evidence chain executed.
 
 ## Current phase
 
@@ -58,8 +68,65 @@ The next honest work is **real enterprise environment preparation**, not more sy
 - Framework 0.4 project-contract adoption: **COMPLETE AND MERGED**.
 - Framework 0.4 customer certification-input producer: **MERGED + MAIN CI PROVEN — PR #10**.
 - Framework 0.4 certification compatibility alignment: **MERGED + MAIN CI PROVEN — PR #12**.
+- Control-plane external-evidence review binding: **MERGED + MAIN CI PROVEN — PR #14**.
 - Framework 0.4 domain-release proof binding: **COMPLETED IN FRAMEWORK PR #92; cleanup PR #94**.
 - Customer production runtime dependency upgrade: **WAITING FOR IMMUTABLE FRAMEWORK v0.4.0**.
+
+## Merged control-plane review binding — PR #14
+
+PR #14 closes a fail-open gap in the Customer exact candidate-input producer without claiming any new live evidence. Before this change, seven arbitrary non-empty control-plane evidence reference strings could satisfy the Customer pre-candidate completeness gate. The live Framework runner would still execute real checks later, but the earlier release prerequisite did not encode the runbook requirement that the external evidence be reviewed and bound to the exact environment/profile.
+
+PR #14 adds:
+
+```text
+certification/review_binding.py
+certification/project/config/certification/integration/control-plane-external-evidence-review.json
+docs/runbooks/CONTROL_PLANE_EXTERNAL_EVIDENCE_REVIEW.md
+tests/test_certification_review_binding.py
+```
+
+The review-binding record is credential-free and contains only:
+
+```text
+environment
+control_plane_profile
+review_record_reference
+evidence_set_reference
+reviewed_at_utc
+```
+
+The exact rule is fail closed:
+
+```text
+seven external evidence references incomplete
+  -> control_plane_external_evidence_incomplete
+
+seven external evidence references complete
+but review binding missing/incomplete/mismatched
+  -> control_plane_external_evidence_not_review_bound
+
+seven external evidence references complete
+and review binding exactly matches environment/profile
+  -> control-plane prerequisite may advance to later live certification gates
+```
+
+This does not validate the external enterprise ticket/catalog system, does not contact Fabric, does not execute database probes, and does not create a PASS result. It only prevents the exact Customer input producer from declaring the prerequisite configured from an unbound set of strings.
+
+Verified PR/main identities:
+
+```text
+fabric-customer PR #14
+merge SHA                    c4097dcc1319f382eb370e9c4d46dcbed7bb383b
+final PR head                456d3914743337e9c6ce9506fe1a2a7033e858ca
+PR customer-ci               33367986684 SUCCESS
+PR certification-contract    33367986688 SUCCESS
+main customer-ci             33368063581 SUCCESS
+main certification-contract  33368063590 SUCCESS
+production runtime pin       fabric-data-framework==0.3.0
+candidate frozen             false
+```
+
+The source-controlled review-binding JSON remains all `null`; no real evidence was invented or committed.
 
 ## Merged compatibility alignment — PR #12
 
@@ -117,7 +184,7 @@ PR #92 exact customer/domain domain_release_hash binding
 PR #94 removal of the obsolete runner-level unbound candidate-proof path
 ```
 
-The certification lane builds the Customer certification extension wheel, runs `certification/build_candidate_inputs.py` with non-live test identities, validates typed DatasetConfig/recipes/scenarios/drivers and asserts the live boundary still fails closed.
+The certification lane builds the Customer certification extension wheel, runs `certification/build_candidate_inputs.py` with non-live test identities, validates typed DatasetConfig/recipes/scenarios/drivers and asserts the live boundary still fails closed. PR #14 additionally requires any future complete external-evidence set to carry an exact environment/profile review binding before that prerequisite can be considered configured.
 
 This source/CI lane does not change the released dependency and is not real Fabric evidence.
 
@@ -255,15 +322,20 @@ Reason:
 control-plane-external-evidence.json
   reviewed enterprise evidence references = null
 
+control-plane-external-evidence-review.json
+  exact environment/profile review binding = null
+
 warehouse-fault-run.json
   controller_url = https://warehouse-fault-controller.example.invalid
 ```
 
-These are now the real blockers to advancing certification. Do **not** remove them merely to make CI green.
+Because the seven external evidence references are currently incomplete, the first blocker remains `control_plane_external_evidence_incomplete`. The new `control_plane_external_evidence_not_review_bound` blocker is intentionally evaluated only after all seven real evidence references exist; it prevents a complete-looking but unreviewed or environment/profile-mismatched set from clearing the prerequisite.
+
+These are still real blockers to advancing certification. Do **not** remove them merely to make CI green.
 
 They may be replaced only when the enterprise environment supplies:
 
-1. reviewed real control-plane certification evidence references for the production-eligible control-plane database; and
+1. reviewed real control-plane certification evidence references for the production-eligible control-plane database, plus a non-secret review record bound to the exact protected environment and exact control-plane profile; and
 2. an approved reachable real Warehouse/session fault-controller endpoint capable of the ambiguous-COMMIT drill required by Framework evidence runners.
 
 Neither value should be invented or committed as a secret. Tokens/passwords/connection strings remain environment secrets, not source-controlled evidence metadata.
@@ -318,11 +390,13 @@ This is onboarding/configuration scale proof, not runtime capacity proof. Debezi
 released Customer runtime with Framework v0.3.0              PROVEN by release/integration CI
 0.4 project-contract compatibility                            exact-SHA static proof
 0.4 certification-input schema compatibility                 MERGED + MAIN CI PROVEN — PR #12
+control-plane evidence review-binding gate                   MERGED + MAIN CI PROVEN — PR #14
 customer certification producer contract                     MERGED + MAIN CI PROVEN
 framework exact domain-release identity chain                MERGED + MAIN CI PROVEN (#92/#94)
 selected/frozen Framework 0.4 candidate                       NOT YET
 selected-candidate Customer input artifact                   NOT RETAINED
 real control-plane external evidence                         NOT RETAINED
+review-bound control-plane evidence set                      NOT RETAINED
 real Warehouse ambiguous-COMMIT controller                   NOT CONFIGURED
 certified Framework integration evidence                     NOT PRODUCED
 five live business-path proofs                               NOT RETAINED
@@ -334,8 +408,8 @@ Customer production migration to v0.4.0                      NOT ALLOWED YET
 ## Exact next sequence
 
 1. Keep the Customer certification-contract lane green against the current feature-frozen Framework code baseline.
-2. Replace the two deliberate live placeholders only after reviewed real enterprise evidence/fault infrastructure exists in a new exact Customer SHA.
-3. Once the real environment is ready, explicitly select/freeze one **new exact Framework main candidate**; do not infer freeze from artifact existence.
+2. Replace the deliberate control-plane placeholders only after reviewed real enterprise evidence exists: populate the seven evidence references and the exact environment/profile review-binding record in one reviewed Customer SHA. Configure the Warehouse fault-controller placeholder only after approved real fault infrastructure exists.
+3. Once both real-environment prerequisites are ready, explicitly select/freeze one **new exact Framework main candidate**; do not infer freeze from artifact existence.
 4. Run Customer `candidate-business-path-inputs.yml` for that exact candidate and exact Customer SHA.
 5. Run Framework `candidate-integration-evidence.yml` against the protected real environment.
 6. Run Framework `candidate-business-path-evidence.yml` for all five representative gates.
@@ -356,6 +430,7 @@ docs/PROJECT_BLUEPRINT.md
 docs/CURRENT_STATUS.md
 docs/runbooks/BUILD_NEW_DOMAIN_PROJECT.md
 docs/runbooks/CERTIFY_FRAMEWORK_0_4.md
+docs/runbooks/CONTROL_PLANE_EXTERNAL_EVIDENCE_REVIEW.md
 examples/enterprise_100_table/README.md
 ```
 
