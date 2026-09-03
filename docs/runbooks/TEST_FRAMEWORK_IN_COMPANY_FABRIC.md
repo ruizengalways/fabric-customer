@@ -1,26 +1,299 @@
-# Runbook — Test Framework 0.4 in Company Fabric
+# Runbook — Test Framework in Company Fabric
 
-Status: first bounded real-company Fabric validation executed successfully on 2026-09-03; retained as the repeatable bounded-test runbook
+Status: unified real-Fabric certification is the default path; the original 2026-09-03 bounded test remains historical evidence for its exact old wheel only.
 
 Last updated: 2026-09-03
 
-This is the Customer-side entrypoint for the bounded company-Fabric test. It intentionally keeps the test bounded so it can be run in an isolated DEV workspace without requiring GitHub-to-Fabric authentication or privileged Warehouse fault injection.
+This is the Customer-side operator entrypoint for testing an exact Framework candidate in company Fabric. New candidates should **not** require an engineer to copy many notebook cells or manually fill PASS/FAIL dropdowns.
 
-The detailed executable Notebook cells live in the Framework runbook:
-
-```text
-fabric-data-framework/docs/human/FIRST_FABRIC_NOTEBOOK_TEST.md
-```
-
-Use this wrapper to recover the exact artifact and project state before following those cells. For the actual first execution summary, also read:
+The Framework package now owns one unified execution surface:
 
 ```text
-fabric-data-framework/docs/machine/FIRST_COMPANY_FABRIC_TEST_2026-09-03.md
+fabric-data-framework/docs/human/UNIFIED_FABRIC_CERTIFICATION.md
 ```
 
-## Observed first execution — 2026-09-03
+## 1. CI versus real Fabric
 
-The first run completed in an approved company Fabric **DEV** workspace using the exact artifact documented below.
+Both are required, but they prove different things.
+
+PR/main CI proves deterministic Framework and Customer contracts: algorithms, recovery state machines, configuration validation, package boundaries, failure cases and build integrity.
+
+Real Fabric certification proves the exact built wheel against the actual tenant/resources:
+
+```text
+exact wheel bytes/install
+Lakehouse Delta behavior
+Fabric item authorization
+Fabric SQL Control Plane behavior
+Pipeline/Copy/Spark provider execution
+Warehouse commit/recovery behavior
+five representative live business paths
+```
+
+Do not run the entire pytest suite inside Fabric merely to duplicate CI.
+
+## 2. Conventional Lakehouse layout
+
+Use an isolated/approved certification workspace, normally DEV first.
+
+Create/use:
+
+```text
+Files/framework_cert/
+```
+
+The attached default Lakehouse should expose:
+
+```text
+/lakehouse/default/Files/framework_cert/
+```
+
+Place the exact Framework main-CI artifact contents there:
+
+```text
+CANDIDATE.json
+SHA256SUMS
+fabric_data_framework-<version>-py3-none-any.whl
+```
+
+Keep exactly one Framework wheel in this directory. If Framework source changes, replace the old artifact with a new successful `main` artifact; old real-Fabric PASS values belong only to old bytes.
+
+## 3. Bounded certification — minimum input
+
+Install the exact Framework wheel, then run one cell:
+
+```python
+from fabric_data_framework.certification import certify, print_certification_summary
+
+report = certify(spark=spark)
+print_certification_summary(report)
+```
+
+This automatically runs:
+
+```text
+exact candidate identity / wheel hash
+Lakehouse write/read
+FULL -> REPLACE + incomplete-FULL destructive guard
+WATERMARK -> SCD1
+WATERMARK -> SCD2
+retry/idempotency
+reconciliation fail-closed
+```
+
+It writes the retained report under:
+
+```text
+Files/framework_cert/certification-output/
+```
+
+No manual certification form is required for the normal unified path.
+
+## 4. Exact Customer input bundle — do not retype IDs in Notebook
+
+The strict environment stages require the exact Customer candidate-input artifact produced for the same Framework candidate.
+
+Extract that artifact under:
+
+```text
+/lakehouse/default/Files/framework_cert/customer-inputs/
+```
+
+Expected layout:
+
+```text
+customer-inputs/
+  INPUTS.json
+  runner-config.json
+  release-manifest.json
+  project/
+  dist/
+```
+
+The bundle already owns the non-secret environment configuration required by the approved runners:
+
+```text
+workspace/item physical bindings
+representative dataset IDs
+control-plane profile
+Pipeline/Copy/Spark recipes
+Warehouse normal/fault recipes
+five-business-path plan
+exact Customer extension wheel fingerprints
+```
+
+Therefore the Fabric operator should not repeatedly type Lakehouse/SQL/Pipeline/Warehouse GUIDs into test cells.
+
+The unified runner verifies Customer candidate SHA/wheel/version binding before using the bundle.
+
+## 5. Runtime secrets stay runtime-only
+
+The source-controlled Customer files contain secret **environment-variable names**, not secret values.
+
+Typical protected runtime values are:
+
+```text
+CONTROL_PLANE_DATABASE_URL
+WAREHOUSE_DATABASE_URL
+WAREHOUSE_ADMIN_DATABASE_URL   # only when exact-session Admin control is needed
+```
+
+Fabric REST authentication may use the configured runtime token or, in a Fabric Notebook, the current NotebookUtils Fabric/Power BI token when available.
+
+Never put connection strings, bearer tokens, passwords, signed URLs or access keys into GitHub evidence-reference JSON or certification output.
+
+## 6. Full ordinary live certification
+
+Only when the dedicated DEV/UAT certification resources and ordinary certification mutations are approved, run:
+
+```python
+from fabric_data_framework.certification import certify, print_certification_summary
+
+report = certify(
+    spark=spark,
+    allow_live_mutations=True,
+)
+print_certification_summary(report)
+```
+
+The runner attempts the fullest safe sequence automatically:
+
+```text
+bounded suite
+-> Fabric item read
+-> real Control Plane reference conformance
+-> approved production Control Plane certification
+-> Pipeline
+-> Copy
+-> Spark
+-> Warehouse normal COMMIT
+-> reviewed ambiguous-COMMIT fault drill
+-> strict integration evidence merge
+-> full.replace live business path
+-> watermark.scd1 live business path
+-> watermark.scd2 live business path
+-> retry.idempotency live business path
+-> reconciliation.fail_closed live business path
+-> merged business-path proof bundle
+```
+
+The package reuses existing approved runners; the Notebook is only the orchestration entrypoint.
+
+## 7. New Fabric SQL Control Plane
+
+For Framework 0.4 company testing, the selected profile may be:
+
+```text
+fabric_sql_database_v1
+```
+
+A newly provisioned dedicated certification Control Plane requires an explicit schema bootstrap decision. Only for that initial approved setup:
+
+```python
+report = certify(
+    spark=spark,
+    allow_live_mutations=True,
+    allow_control_plane_migration=True,
+)
+```
+
+Normal reruns should leave migration disabled. Production certification must not silently migrate a database just to make schema checks pass.
+
+## 8. Seven Control Plane external-evidence references remain real governance
+
+The unified runner does not eliminate the enterprise evidence requirement. The exact Customer inputs still require these seven reviewed references before approved production Control Plane certification can PASS:
+
+```text
+backend_service_identity_reference
+identity_access_control_reference
+network_security_reference
+backup_restore_reference
+availability_recovery_reference
+monitoring_alerting_reference
+retention_governance_reference
+```
+
+The public Customer repo stores only stable, non-secret references to real internal evidence/review records. Do not commit internal credentials or secret URLs.
+
+Current fail-closed blockers remain meaningful:
+
+```text
+control_plane_external_evidence_incomplete
+control_plane_external_evidence_not_review_bound
+```
+
+Successful SQL connectivity cannot turn either blocker into PASS.
+
+## 9. Warehouse ambiguous COMMIT remains governed
+
+A real Warehouse fault drill requires the reviewed real fault controller configured by the exact Customer input bundle.
+
+If it is not configured, the unified report must surface:
+
+```text
+warehouse_real_fault_controller_not_configured
+```
+
+and the fault stage remains blocked/not-run.
+
+`allow_live_mutations=True` does not imply permission to perform Admin-level exact-session termination.
+
+Only if company governance separately approves exact-session termination for the isolated certification Warehouse:
+
+```python
+report = certify(
+    spark=spark,
+    allow_live_mutations=True,
+    allow_warehouse_session_termination=True,
+)
+```
+
+Never use session termination or fault injection against a shared/production Warehouse merely to complete certification.
+
+## 10. Unified status semantics
+
+The report uses:
+
+```text
+PASS      the actual stage ran and passed
+FAIL      the actual stage ran and failed
+NOT_RUN   the stage intentionally did not run
+BLOCKED   a required external/configuration prerequisite is not ready
+```
+
+A real FAIL must be investigated/fixed. Missing permissions/evidence do not become synthetic PASS.
+
+The unified report always has:
+
+```text
+release_authorized = false
+```
+
+Running certification does not freeze/select a candidate and does not publish Framework 0.4.
+
+## 11. Customer production pin boundary
+
+Candidate testing never changes the released Customer runtime dependency.
+
+Until immutable Framework 0.4.0 is actually released and release governance explicitly permits migration, keep:
+
+```text
+fabric-data-framework==0.3.0
+```
+
+## 12. Historical first company run — old bytes only
+
+The first bounded company-Fabric execution occurred on 2026-09-03 before the unified runner existed.
+
+Exact historical Framework identity:
+
+```text
+framework-ci main run   33381666892
+Framework SHA           303683729c4915d78200d463a6def01c8de9eae6
+wheel SHA256            0638c95c19ebcc43ec4ec462b7f960a164209874223517e3f74b951264b0eaf6
+```
+
+Observed result:
 
 ```text
 identity                           PASS
@@ -37,305 +310,44 @@ admin override                     false
 release authorized                 false
 ```
 
-A dedicated test Warehouse existed in the DEV workspace, but session-termination/fault-injection authorization was not confirmed and the full approved Warehouse-runner prerequisites were not assembled for this bounded lane. Therefore both Warehouse checks stayed `NOT_RUN`; no ad-hoc SQL or fault injection was used to manufacture PASS.
+That run remains useful historical compatibility evidence for those exact bytes. It is **not** evidence for a newer Framework wheel containing the unified certification feature.
 
-The generated manual record had exact Framework identity, `environment=DEV`, `missing_fields=['notebook_reference']`, `admin_override=false`, and `release_authorized=false`. The final sanity inspection contained no secret-bearing material. The raw JSON stays in the company Fabric environment; the public repos retain only the non-secret summary.
+## 13. Manual cells and form are fallback diagnostics
 
-This successful bounded result does **not** freeze/select the tested artifact and does not authorize Framework 0.4 release.
-
-## 1. Exact package to test
-
-The first run used this artifact from `ruizengalways/fabric-data-framework`:
+The older Framework files remain available:
 
 ```text
-Actions -> framework-ci -> run 33381666892
-artifact name   framework-wheel-303683729c4915d78200d463a6def01c8de9eae6
-artifact ID     9753976212
+docs/human/FIRST_FABRIC_NOTEBOOK_TEST.md
+docs/human/MANUAL_CERTIFICATION.md
 ```
 
-Expected exact identity:
+Use the explicit cells to isolate a failing unified check or validate an old wheel. Use the manual/Admin-Override lane only when policy specifically requires that governance record.
+
+Do not make the manual form the normal test executor; it only records operator-observed results.
+
+## 14. Recovery sequence for a new chat
+
+Read current GitHub `main`, not chat memory, in this order:
 
 ```text
-Framework main SHA     303683729c4915d78200d463a6def01c8de9eae6
-wheel                   fabric_data_framework-0.4.0-py3-none-any.whl
-wheel SHA256            0638c95c19ebcc43ec4ec462b7f960a164209874223517e3f74b951264b0eaf6
+fabric-customer/docs/CURRENT_STATUS.md
+fabric-customer/docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
+fabric-customer/docs/runbooks/CONTROL_PLANE_EXTERNAL_EVIDENCE_REVIEW.md
+fabric-data-framework/docs/machine/STATE.md
+fabric-data-framework/docs/machine/UNIFIED_CERTIFICATION.md
+fabric-data-framework/docs/human/UNIFIED_FABRIC_CERTIFICATION.md
 ```
 
-The downloaded artifact must contain:
+Then verify:
 
 ```text
-fabric_data_framework-0.4.0-py3-none-any.whl
-CANDIDATE.json
-SHA256SUMS
+current Framework main SHA / CI
+current Customer main SHA / CI
+candidate_status
+release_allowed
+Customer production dependency pin
+control-plane external evidence blockers
+Warehouse fault-controller blocker
 ```
 
-Keep these three files together.
-
-This package is **candidate-capable, not frozen**. Testing it does not authorize release. If Framework code changes, do not reuse the old bytes or their test result; obtain and verify a new exact artifact.
-
-## 2. Corporate Fabric setup
-
-Use only an isolated/approved DEV workspace for this bounded run.
-
-Prepare:
-
-```text
-[ ] Fabric DEV workspace you are permitted to use
-[ ] Notebook
-[ ] disposable/default Lakehouse attached to the Notebook
-[ ] permission to upload three files under Files/framework_cert/
-[ ] permission to create/read/delete small test Delta data under that area
-```
-
-Do not use production business data.
-
-## 3. Upload package
-
-Upload all three files into:
-
-```text
-Files/framework_cert/
-```
-
-With the default Lakehouse attached, the normal Notebook file API paths are:
-
-```text
-/lakehouse/default/Files/framework_cert/fabric_data_framework-0.4.0-py3-none-any.whl
-/lakehouse/default/Files/framework_cert/CANDIDATE.json
-/lakehouse/default/Files/framework_cert/SHA256SUMS
-```
-
-If your tenant shows a different file path, use the exact local path Fabric exposes and verify it exists before installing.
-
-## 4. Install exact wheel
-
-Notebook cell:
-
-```text
-%pip install /lakehouse/default/Files/framework_cert/fabric_data_framework-0.4.0-py3-none-any.whl
-```
-
-If Fabric requires a restart after inline installation:
-
-```python
-notebookutils.session.restartPython()
-```
-
-Then rerun your path-variable cell because Python variables are cleared by restart.
-
-If outbound package access is blocked and a dependency is missing, do not weaken corporate network policy. Prepare dependency wheels externally for the matching Fabric Python runtime, upload them as approved local libraries, and install locally.
-
-The first 2026-09-03 execution also observed `%pip check` conflicts involving `fsspec-wrapper`/`PyJWT` and `nni`/`filelock`. No corporate Fabric packages or network/security controls were modified to suppress those observations. Framework installation, import, exact identity, and the executed bounded checks still passed.
-
-## 5. Verify package identity first
-
-Before any semantic test, run the identity-verification cell from Framework `FIRST_FABRIC_NOTEBOOK_TEST.md`.
-
-It must prove:
-
-```text
-actual wheel bytes SHA256 == CANDIDATE.json wheel_sha256
-installed fabric-data-framework version == CANDIDATE.json framework_version
-```
-
-Expected values for the first run:
-
-```text
-candidate_git_sha = 303683729c4915d78200d463a6def01c8de9eae6
-wheel_sha256      = 0638c95c19ebcc43ec4ec462b7f960a164209874223517e3f74b951264b0eaf6
-workflow_run_id   = 33381666892
-```
-
-Do not manually type these long values into the certification UI later. Pass the actual `CANDIDATE.json` and wheel paths to Framework.
-
-If identity verification fails, stop the test.
-
-## 6. Run the bounded checks
-
-Follow the Framework runbook cells in this exact order:
-
-```text
-1. Lakehouse write/read smoke
-2. FULL -> REPLACE
-3. WATERMARK -> SCD1
-4. WATERMARK -> SCD2
-5. retry / idempotency
-6. reconciliation fail-closed
-```
-
-Record each actual result as PASS or FAIL.
-
-The reconciliation test deliberately forces the underlying reconciliation result to `FAIL`; the certification check is PASS only when Framework also proves `blocks_state_advance=true`.
-
-## 7. Warehouse boundary
-
-Unless you genuinely have an approved isolated Warehouse **and** the required approved Framework runner prerequisites/permissions, use:
-
-```text
-warehouse.commit = NOT_RUN
-warehouse.ambiguous_commit = NOT_RUN
-```
-
-A dedicated DEV Warehouse by itself is not enough to claim the approved Warehouse evidence check. Do not replace the Framework runner with a simpler SQL transaction merely to get a PASS.
-
-Do not perform session termination, fault injection, or ambiguous-COMMIT simulation unless that activity is explicitly approved for the isolated test Warehouse.
-
-Do not perform any such operation against a shared or production Warehouse merely to complete the form.
-
-This bounded test is still useful without those two Warehouse checks.
-
-## 8. Create manual certification record
-
-After running the real checks, use:
-
-```python
-from fabric_data_framework.evidence.manual_certification import (
-    display_notebook_certification_form,
-)
-
-WHEEL_PATH = "/lakehouse/default/Files/framework_cert/fabric_data_framework-0.4.0-py3-none-any.whl"
-CANDIDATE_PATH = "/lakehouse/default/Files/framework_cert/CANDIDATE.json"
-
-display_notebook_certification_form(
-    candidate_manifest_path=CANDIDATE_PATH,
-    wheel_path=WHEEL_PATH,
-    output_path="/lakehouse/default/Files/framework_cert/manual-certification.json",
-)
-```
-
-The UI uses:
-
-```text
-NOT RUN / PASS / FAIL
-```
-
-for each check.
-
-Important: these Dropdowns **record what you observed**. They do not execute the test.
-
-Map results honestly:
-
-```text
-Lakehouse smoke                 actual PASS/FAIL
-FULL -> REPLACE                 actual PASS/FAIL
-WATERMARK -> SCD1              actual PASS/FAIL
-WATERMARK -> SCD2              actual PASS/FAIL
-Retry / idempotency            actual PASS/FAIL
-Reconciliation fail-closed     actual PASS/FAIL
-Warehouse commit               NOT RUN unless really tested through the approved lane
-Ambiguous COMMIT recovery      NOT RUN unless really tested through the approved lane
-```
-
-## 9. Admin Override policy
-
-Use Admin Override only as an explicit governance decision when some coverage/context cannot be obtained or exported because of corporate constraints.
-
-Example acceptable reason:
-
-```text
-Bounded Framework validation completed in corporate Fabric DEV; Warehouse fault-injection coverage is unavailable under current permissions.
-```
-
-Do not put passwords, tokens or connection strings into the form.
-
-A real functional FAIL remains retained as FAIL even when overall Admin Override status is CERTIFIED. The default response to a failed identity/Lakehouse/SCD/retry/reconciliation test is to stop, investigate, fix and retest.
-
-For a bounded smoke test, leave:
-
-```text
-Authorize exact-candidate release = OFF
-```
-
-unless separate release governance explicitly requires otherwise. The current strict Framework release workflow does not use this manual flag as a substitute for evidence-based release readiness anyway.
-
-The first 2026-09-03 run used no Admin Override and left release authorization OFF.
-
-## 10. Inspect generated JSON
-
-Open:
-
-```text
-Files/framework_cert/manual-certification.json
-```
-
-Verify:
-
-```text
-[ ] candidate_git_sha matches CANDIDATE.json
-[ ] artifact_sha256 matches the actual wheel
-[ ] every executed check has the correct PASS/FAIL state
-[ ] unexecuted privileged checks are not represented as PASS
-[ ] admin_override is correct
-[ ] override_reason exists when admin_override=true
-[ ] missing_fields is honest
-[ ] no secret material is present
-```
-
-Retain the file only if company policy permits it to be retained/exported.
-
-## 11. Optional GitHub-side administrator record
-
-If policy allows the short GitHub run ID / decision to be communicated but not the full corporate evidence bundle, return to Framework GitHub Actions:
-
-```text
-candidate-admin-certification
-```
-
-Use:
-
-```text
-candidate_run_id = 33381666892
-override_reason  = explicit non-secret governance reason
-confirm_admin_override = true
-```
-
-Optional environment/notebook reference/notes may be left blank.
-
-GitHub independently retrieves/verifies its own exact candidate artifact. It does **not** connect into company Fabric.
-
-This optional workflow was not needed for the first 2026-09-03 normal Notebook certification.
-
-## 12. Stop conditions
-
-Stop and investigate if any of these occur:
-
-```text
-wheel SHA mismatch
-installed Framework version mismatch
-Lakehouse smoke cannot write/read isolated Delta data
-FULL incomplete-snapshot guard fails to block
-SCD1 mutation/result is incorrect
-SCD2 history/current-row invariant is incorrect
-idempotent retry creates a new mutation/history row
-forced reconciliation does not return FAIL + blocks_state_advance=true
-```
-
-Admin Override should not be used simply to hide one of these known product failures.
-
-## 13. Cleanup
-
-Remove only disposable test data created under the isolated test area. Keep the exact wheel + `CANDIDATE.json` together until the decision is recorded.
-
-Do not modify normal Customer production configuration or the production dependency pin as part of this test.
-
-## 14. After the test
-
-The first bounded result is now recorded in canonical recovery docs with:
-
-```text
-test executed                   yes
-exact Framework run             33381666892
-exact Framework SHA             303683729c4915d78200d463a6def01c8de9eae6
-bounded semantic checks         PASS
-Warehouse privileged checks     NOT_RUN
-manual certification            CERTIFIED / NOTEBOOK
-Admin Override                   false
-release authorization            false
-raw manual JSON in public repo   no
-```
-
-Do not label the bounded test as full evidence-based `RELEASE PROVEN`.
-
-The later strict release lane still requires real reviewed control-plane evidence, exact review binding, approved real Warehouse fault controller, explicit candidate freeze, retained integration/business-path/release proofs, and `candidate-certification blockers=[] / release_ready=true`.
-
-Because the bounded run used pre-freeze artifact `303683729...`, any future strict candidate after source/doc/prerequisite changes must have a new exact identity. Do not reuse this run's results as certification evidence for changed wheel bytes.
+If Framework code changed after the last real-Fabric run, generate/download a new exact main artifact before continuing testing.
