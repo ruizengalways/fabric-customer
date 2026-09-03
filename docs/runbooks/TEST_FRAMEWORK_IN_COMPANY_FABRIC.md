@@ -1,10 +1,10 @@
 # Runbook — Test Framework 0.4 in Company Fabric
 
-Status: ready for the first bounded real-company Fabric validation
+Status: first bounded real-company Fabric validation executed successfully on 2026-09-03; retained as the repeatable bounded-test runbook
 
-Last updated: 2026-08-31
+Last updated: 2026-09-03
 
-This is the Customer-side entrypoint for the first company-Fabric test. It intentionally keeps the test bounded so it can be run in an isolated DEV workspace without requiring GitHub-to-Fabric authentication or privileged Warehouse fault injection.
+This is the Customer-side entrypoint for the bounded company-Fabric test. It intentionally keeps the test bounded so it can be run in an isolated DEV workspace without requiring GitHub-to-Fabric authentication or privileged Warehouse fault injection.
 
 The detailed executable Notebook cells live in the Framework runbook:
 
@@ -12,11 +12,40 @@ The detailed executable Notebook cells live in the Framework runbook:
 fabric-data-framework/docs/human/FIRST_FABRIC_NOTEBOOK_TEST.md
 ```
 
-Use this wrapper to recover the exact artifact and project state before following those cells.
+Use this wrapper to recover the exact artifact and project state before following those cells. For the actual first execution summary, also read:
+
+```text
+fabric-data-framework/docs/machine/FIRST_COMPANY_FABRIC_TEST_2026-09-03.md
+```
+
+## Observed first execution — 2026-09-03
+
+The first run completed in an approved company Fabric **DEV** workspace using the exact artifact documented below.
+
+```text
+identity                           PASS
+lakehouse.smoke                    PASS
+full.replace                       PASS
+watermark.scd1                     PASS
+watermark.scd2                     PASS
+retry.idempotency                  PASS
+reconciliation.fail_closed         PASS
+warehouse.commit                   NOT_RUN
+warehouse.ambiguous_commit         NOT_RUN
+manual certification               CERTIFIED / NOTEBOOK
+admin override                     false
+release authorized                 false
+```
+
+A dedicated test Warehouse existed in the DEV workspace, but session-termination/fault-injection authorization was not confirmed and the full approved Warehouse-runner prerequisites were not assembled for this bounded lane. Therefore both Warehouse checks stayed `NOT_RUN`; no ad-hoc SQL or fault injection was used to manufacture PASS.
+
+The generated manual record had exact Framework identity, `environment=DEV`, `missing_fields=['notebook_reference']`, `admin_override=false`, and `release_authorized=false`. The final sanity inspection contained no secret-bearing material. The raw JSON stays in the company Fabric environment; the public repos retain only the non-secret summary.
+
+This successful bounded result does **not** freeze/select the tested artifact and does not authorize Framework 0.4 release.
 
 ## 1. Exact package to test
 
-Download from `ruizengalways/fabric-data-framework`:
+The first run used this artifact from `ruizengalways/fabric-data-framework`:
 
 ```text
 Actions -> framework-ci -> run 33381666892
@@ -42,11 +71,11 @@ SHA256SUMS
 
 Keep these three files together.
 
-This package is **candidate-capable, not frozen**. Testing it does not authorize release.
+This package is **candidate-capable, not frozen**. Testing it does not authorize release. If Framework code changes, do not reuse the old bytes or their test result; obtain and verify a new exact artifact.
 
 ## 2. Corporate Fabric setup
 
-Use only an isolated/approved DEV workspace for the first run.
+Use only an isolated/approved DEV workspace for this bounded run.
 
 Prepare:
 
@@ -96,6 +125,8 @@ Then rerun your path-variable cell because Python variables are cleared by resta
 
 If outbound package access is blocked and a dependency is missing, do not weaken corporate network policy. Prepare dependency wheels externally for the matching Fabric Python runtime, upload them as approved local libraries, and install locally.
 
+The first 2026-09-03 execution also observed `%pip check` conflicts involving `fsspec-wrapper`/`PyJWT` and `nni`/`filelock`. No corporate Fabric packages or network/security controls were modified to suppress those observations. Framework installation, import, exact identity, and the executed bounded checks still passed.
+
 ## 5. Verify package identity first
 
 Before any semantic test, run the identity-verification cell from Framework `FIRST_FABRIC_NOTEBOOK_TEST.md`.
@@ -107,7 +138,7 @@ actual wheel bytes SHA256 == CANDIDATE.json wheel_sha256
 installed fabric-data-framework version == CANDIDATE.json framework_version
 ```
 
-Expected values for this first run:
+Expected values for the first run:
 
 ```text
 candidate_git_sha = 303683729c4915d78200d463a6def01c8de9eae6
@@ -138,16 +169,20 @@ The reconciliation test deliberately forces the underlying reconciliation result
 
 ## 7. Warehouse boundary
 
-Unless you genuinely have an approved isolated Warehouse and the required permissions/resources, use:
+Unless you genuinely have an approved isolated Warehouse **and** the required approved Framework runner prerequisites/permissions, use:
 
 ```text
 warehouse.commit = NOT_RUN
 warehouse.ambiguous_commit = NOT_RUN
 ```
 
-Do not perform session termination, fault injection, or ambiguous-COMMIT simulation against a shared or production Warehouse merely to complete the form.
+A dedicated DEV Warehouse by itself is not enough to claim the approved Warehouse evidence check. Do not replace the Framework runner with a simpler SQL transaction merely to get a PASS.
 
-This bounded first test is still useful without those two Warehouse checks.
+Do not perform session termination, fault injection, or ambiguous-COMMIT simulation unless that activity is explicitly approved for the isolated test Warehouse.
+
+Do not perform any such operation against a shared or production Warehouse merely to complete the form.
+
+This bounded test is still useful without those two Warehouse checks.
 
 ## 8. Create manual certification record
 
@@ -187,8 +222,8 @@ WATERMARK -> SCD1              actual PASS/FAIL
 WATERMARK -> SCD2              actual PASS/FAIL
 Retry / idempotency            actual PASS/FAIL
 Reconciliation fail-closed     actual PASS/FAIL
-Warehouse commit               NOT RUN unless really tested
-Ambiguous COMMIT recovery      NOT RUN unless really tested
+Warehouse commit               NOT RUN unless really tested through the approved lane
+Ambiguous COMMIT recovery      NOT RUN unless really tested through the approved lane
 ```
 
 ## 9. Admin Override policy
@@ -205,13 +240,15 @@ Do not put passwords, tokens or connection strings into the form.
 
 A real functional FAIL remains retained as FAIL even when overall Admin Override status is CERTIFIED. The default response to a failed identity/Lakehouse/SCD/retry/reconciliation test is to stop, investigate, fix and retest.
 
-For the first smoke test, leave:
+For a bounded smoke test, leave:
 
 ```text
 Authorize exact-candidate release = OFF
 ```
 
 unless separate release governance explicitly requires otherwise. The current strict Framework release workflow does not use this manual flag as a substitute for evidence-based release readiness anyway.
+
+The first 2026-09-03 run used no Admin Override and left release authorization OFF.
 
 ## 10. Inspect generated JSON
 
@@ -256,6 +293,8 @@ Optional environment/notebook reference/notes may be left blank.
 
 GitHub independently retrieves/verifies its own exact candidate artifact. It does **not** connect into company Fabric.
 
+This optional workflow was not needed for the first 2026-09-03 normal Notebook certification.
+
 ## 12. Stop conditions
 
 Stop and investigate if any of these occur:
@@ -281,16 +320,22 @@ Do not modify normal Customer production configuration or the production depende
 
 ## 14. After the test
 
-Update canonical recovery docs with the **actual** result:
+The first bounded result is now recorded in canonical recovery docs with:
 
 ```text
-test executed / not executed
-exact Framework run + SHA
-which bounded checks PASS/FAIL/NOT_RUN
-manual-certification record retained or not retained
-Admin Override used or not used
+test executed                   yes
+exact Framework run             33381666892
+exact Framework SHA             303683729c4915d78200d463a6def01c8de9eae6
+bounded semantic checks         PASS
+Warehouse privileged checks     NOT_RUN
+manual certification            CERTIFIED / NOTEBOOK
+Admin Override                   false
+release authorization            false
+raw manual JSON in public repo   no
 ```
 
 Do not label the bounded test as full evidence-based `RELEASE PROVEN`.
 
 The later strict release lane still requires real reviewed control-plane evidence, exact review binding, approved real Warehouse fault controller, explicit candidate freeze, retained integration/business-path/release proofs, and `candidate-certification blockers=[] / release_ready=true`.
+
+Because the bounded run used pre-freeze artifact `303683729...`, any future strict candidate after source/doc/prerequisite changes must have a new exact identity. Do not reuse this run's results as certification evidence for changed wheel bytes.
