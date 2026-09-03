@@ -1,12 +1,14 @@
 # Current Status — fabric-customer
 
-Last updated: 2026-08-31
+Last updated: 2026-09-03
 
 ## New-conversation recovery checkpoint
 
 Start here when resuming this project. `main` is truth.
 
-The **next action is the first bounded company-Fabric Notebook test**. Do not add more synthetic certification machinery, do not freeze a Framework candidate, and do not release Framework 0.4 before this bounded test is run and its actual result is recorded.
+The **first bounded company-Fabric Notebook test has now been executed successfully and recorded**. Do not inflate that bounded result into full release evidence, do not freeze the already-tested PR #99 Framework artifact merely because it passed, and do not release Framework 0.4 yet.
+
+The next release-oriented work is to close the real evidence prerequisites: reviewed/bound control-plane evidence plus an explicitly approved reachable Warehouse ambiguous-COMMIT fault controller. Only after those prerequisites are genuinely ready should a **NEW exact Framework candidate** be explicitly selected/frozen for the strict evidence-based release lane.
 
 Read in this order:
 
@@ -14,8 +16,9 @@ Read in this order:
 1. fabric-customer/docs/CURRENT_STATUS.md
 2. fabric-customer/docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
 3. fabric-data-framework/docs/machine/STATE.md
-4. fabric-data-framework/docs/human/FIRST_FABRIC_NOTEBOOK_TEST.md
-5. fabric-data-framework/docs/human/MANUAL_CERTIFICATION.md
+4. fabric-data-framework/docs/machine/FIRST_COMPANY_FABRIC_TEST_2026-09-03.md
+5. fabric-data-framework/docs/human/FIRST_FABRIC_NOTEBOOK_TEST.md
+6. fabric-data-framework/docs/human/MANUAL_CERTIFICATION.md
 ```
 
 The certification form is a **result recorder**. It does not execute the tests.
@@ -39,11 +42,11 @@ Framework machine-state checkpoint PR #100
   main CI                      33382034631 SUCCESS
 ```
 
-PR #99 supersedes PR #97 as the current substantive Framework code baseline. PR #97 remains the original Notebook/manual certification + GitHub Admin Override feature milestone. PR #100 is a documentation/machine-state checkpoint and does not select a release candidate.
+PR #99 remains the current substantive Framework code baseline. PR #97 remains the original Notebook/manual certification + GitHub Admin Override feature milestone. PR #100 is the prior documentation/machine-state checkpoint and did not select a release candidate.
 
-### Exact Framework artifact for the first company test
+### Exact Framework artifact that was tested
 
-Use **this PR #99 main artifact**, not the older PR #97 wheel and not a later documentation-only wheel:
+The first company test used **this PR #99 main artifact**, not the older PR #97 wheel and not a later documentation-only wheel:
 
 ```text
 framework-ci main run          33381666892
@@ -64,9 +67,40 @@ CANDIDATE.json
 SHA256SUMS
 ```
 
-Keep all three together. `CANDIDATE.json` allows Framework to auto-resolve the long Framework Git SHA and wheel SHA256. The Notebook test also hashes the actual wheel bytes and compares them with that manifest.
+All three were kept together. The Notebook verified the actual wheel bytes, installed Framework version, exact candidate Git SHA and workflow run ID before semantic testing.
 
-This artifact is **candidate-capable only**. Downloading it, uploading it to Fabric, or testing it does not select/freeze it.
+This artifact remains **candidate-capable only**. Testing it did not select/freeze it.
+
+### First bounded company-Fabric result — 2026-09-03
+
+Detailed Framework checkpoint:
+
+```text
+fabric-data-framework/docs/machine/FIRST_COMPANY_FABRIC_TEST_2026-09-03.md
+```
+
+Actual result:
+
+```text
+identity                           PASS
+lakehouse.smoke                    PASS
+full.replace                       PASS
+watermark.scd1                     PASS
+watermark.scd2                     PASS
+retry.idempotency                  PASS
+reconciliation.fail_closed         PASS
+warehouse.commit                   NOT_RUN
+warehouse.ambiguous_commit         NOT_RUN
+manual certification               CERTIFIED / NOTEBOOK
+admin override                     false
+release authorized                 false
+```
+
+The forced reconciliation test correctly returned underlying `FAIL` plus `blocks_state_advance=true`; therefore the certification check `reconciliation.fail_closed` is PASS.
+
+A dedicated test Warehouse exists in the DEV workspace, but session termination/fault-injection authorization was not confirmed and the full approved Warehouse runner prerequisites were not assembled for this bounded lane. Both Warehouse checks therefore remain `NOT_RUN`, not synthetic PASS.
+
+The generated manual record reported `environment=DEV`, `missing_fields=['notebook_reference']`, `admin_override=false`, and `release_authorized=false`. A final sanity inspection found `operator`, `notebook_reference`, `notes`, and `override_reason` null/empty and no secret-bearing material. The raw JSON remains in the company Fabric DEV environment; the public repos retain only the non-secret summary.
 
 ### Customer current recovery/test-readiness baseline
 
@@ -79,9 +113,13 @@ Customer PR #17
   main customer-ci             33382529532 SUCCESS
   main certification-contract  33382529539 SUCCESS
 
+Customer docs checkpoint PR #18
+  merge SHA                    5e6007f1e62a04644d31f89ecbd15419b1cc4a81
+
 previous Customer PR #16       0c6cb0afd662f61082b41d34ef245ec2b055c97d
 production Framework dependency fabric-data-framework==0.3.0
-manual/company-Fabric certification retained no
+bounded company-Fabric test summary retained yes
+raw manual-certification JSON in repo       no
 ```
 
 The Customer production dependency must remain exactly `fabric-data-framework==0.3.0` until immutable Framework v0.4.0 is actually published and release governance permits migration.
@@ -89,22 +127,25 @@ The Customer production dependency must remain exactly `fabric-data-framework==0
 ## Current release truth
 
 ```text
-Framework public release                    v0.3.0
+Framework public release                     v0.3.0
 Framework 0.4 source                         feature-frozen / unreleased
 Framework release_allowed                    false
 Framework exact candidate                    not frozen
 Framework ordinary readiness blockers        15
 first company-Fabric test runbook             implemented
-first company-Fabric test executed            no
-manual/admin certification record retained    no
-selected-candidate Customer input artifact   not retained
-certified integration evidence               not produced
-five live business-path proofs               not retained
-immutable Framework v0.4.0                   not published
-Customer production pin                      fabric-data-framework==0.3.0
+first company-Fabric test executed            yes — bounded PASS/NOT_RUN result
+manual Notebook certification                 CERTIFIED
+manual Admin Override                         not used
+manual release authorization                  false
+raw manual certification JSON in repo         no
+selected-candidate Customer input artifact    not retained
+certified integration evidence                not produced
+five live business-path proofs                not retained
+immutable Framework v0.4.0                    not published
+Customer production pin                       fabric-data-framework==0.3.0
 ```
 
-No live Fabric test has been claimed. No candidate was frozen. No Admin Override has been executed. No current claim is full evidence-based `FABRIC PROVEN`, `FABRIC WAREHOUSE PROVEN`, or `RELEASE PROVEN`.
+A real bounded Fabric DEV test has now been executed for the exact PR #99 wheel. No candidate was frozen. No Admin Override has been executed. No current claim is full evidence-based `PRODUCTION DB PROVEN`, `FABRIC WAREHOUSE PROVEN`, or `RELEASE PROVEN`.
 
 ## Documentation/test-readiness gaps closed before testing
 
@@ -126,7 +167,7 @@ executable test runbook       docs/human/FIRST_FABRIC_NOTEBOOK_TEST.md
 known FAIL under override     remains explicitly retained as FAIL
 ```
 
-The bounded first-test runbook executes:
+The bounded runbook executed:
 
 ```text
 exact wheel/CANDIDATE identity verification
@@ -139,40 +180,43 @@ reconciliation fail-closed
 manual-certification.json generation
 ```
 
-If real approved Warehouse resources/permissions are unavailable, retain:
+The privileged checks remained honestly unexecuted:
 
 ```text
 warehouse.commit = NOT_RUN
 warehouse.ambiguous_commit = NOT_RUN
 ```
 
-Do not create synthetic Warehouse PASS merely to fill the form.
+No synthetic Warehouse PASS was created merely to fill the form.
 
 ## Two certification lanes remain separate
 
-### Lane A — bounded company Fabric Notebook/manual validation — NEXT
+### Lane A — bounded company Fabric Notebook/manual validation — COMPLETED 2026-09-03
 
 ```text
 successful Framework main CI artifact
   -> isolated company Fabric DEV workspace
   -> exact wheel + CANDIDATE.json + SHA256SUMS
   -> attached disposable/default Lakehouse
-  -> run bounded real tests
-  -> record PASS / FAIL / NOT RUN
-  -> optional explicit Admin Override
-  -> manual-certification.json
+  -> bounded real tests PASS
+  -> Warehouse privileged checks NOT_RUN
+  -> normal Notebook manual record CERTIFIED
+  -> admin_override=false
+  -> release_authorized=false
 ```
 
 No candidate freeze is required for this bounded pre-freeze compatibility/smoke test.
 
-Admin Override may accept missing/unavailable/export-restricted coverage, with reason and missing fields retained. It should not be used to erase a known product defect: if an executed identity/Lakehouse/SCD/retry/reconciliation check fails, retain `FAIL` and normally investigate before certifying.
+Admin Override was not needed. The missing `notebook_reference` remained explicit and did not justify manufacturing evidence or release authorization.
 
-The GitHub-side `.github/workflows/candidate-admin-certification.yml` remains available. It does not connect to corporate Fabric. For the artifact above, use `candidate_run_id=33381666892`; GitHub independently resolves/verifies candidate SHA, run attempt, framework version, wheel bytes, `CANDIDATE.json`, `SHA256SUMS`, and wheel SHA256.
+The GitHub-side `.github/workflows/candidate-admin-certification.yml` remains available but was not used for this bounded execution. It does not connect to corporate Fabric. For the tested artifact, `candidate_run_id=33381666892` remains the exact GitHub identity anchor.
 
-### Lane B — full automated evidence-based Framework release — LATER
+### Lane B — full automated evidence-based Framework release — NEXT RELEASE-ORIENTED WORK
 
 ```text
-exact frozen candidate
+reviewed real control-plane evidence + exact binding
+  -> approved reachable Warehouse/session fault controller
+  -> explicitly freeze/select one NEW exact Framework candidate
   -> Customer exact certification inputs
   -> candidate-integration-evidence
   -> candidate-business-path-evidence
@@ -182,7 +226,9 @@ exact frozen candidate
   -> framework-release exact already-certified bytes
 ```
 
-The existing strict `release.yml` does **not** accept a manual/Admin Override record as a substitute for this retained evidence chain.
+The existing strict `release.yml` does **not** accept the bounded Notebook/manual record as a substitute for this retained evidence chain.
+
+Do not freeze the already-tested PR #99 artifact simply because its bounded test passed. The strict lane should start with a NEW exact candidate only after the real environment prerequisites are ready.
 
 ## Current Customer evidence-based prerequisites
 
@@ -244,36 +290,33 @@ selected-candidate Customer input artifact   not retained
 ## Exact next operating sequence
 
 ```text
-1. read this file plus Framework docs/machine/STATE.md
-2. open docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
-3. in Framework GitHub Actions download main run 33381666892 artifact 9753976212
-4. create/use isolated company Fabric DEV workspace + disposable/default Lakehouse
-5. upload wheel + CANDIDATE.json + SHA256SUMS together
-6. install exact wheel; restart Python session if required
-7. verify actual wheel SHA/version against CANDIDATE.json
-8. run Lakehouse smoke
-9. run FULL -> REPLACE including incomplete-snapshot fail-closed guard
-10. run SCD1
-11. run SCD2
-12. rerun the same SCD2 change to prove idempotency
-13. force reconciliation FAIL and prove blocks_state_advance=true
-14. keep Warehouse checks NOT_RUN if not genuinely available
-15. open Notebook certification form and record actual PASS/FAIL/NOT RUN
-16. optionally use explicit Admin Override for unavailable/export-restricted gaps; retain any real FAIL
-17. leave Authorize exact-candidate release OFF for this first smoke unless separate governance explicitly requires it
-18. inspect/retain manual-certification.json if company policy permits
-19. optional GitHub admin record using candidate_run_id 33381666892
-20. do NOT change Customer production pin and do NOT infer candidate freeze/release from this test
+1. treat the 2026-09-03 bounded Notebook result as completed and keep its evidence class bounded
+2. keep Framework release_allowed=false and candidate_status=not_frozen
+3. keep Customer production dependency exactly fabric-data-framework==0.3.0
+4. obtain the seven real control-plane evidence references for the intended protected environment/profile
+5. create/review the exact source-controlled control-plane evidence binding
+6. obtain explicit approval and a reachable real Warehouse/session ambiguous-COMMIT fault controller
+7. verify BOTH prerequisite families are genuinely ready before any candidate freeze
+8. build a NEW Framework main artifact after the documentation/prerequisite work and explicitly select/freeze that exact candidate
+9. produce Customer candidate inputs for that exact candidate and exact Customer SHA
+10. run candidate-integration-evidence
+11. run all five candidate-business-path-evidence drills
+12. run candidate-release-proofs
+13. candidate-certification must reach blockers=[] and release_ready=true
+14. framework-release must promote the exact already-certified bytes with no rebuild
+15. only after immutable Framework v0.4.0 exists may Customer production migration from v0.3.0 be considered
 ```
+
+Do not rerun or freeze the old PR #99 artifact by default. It served its purpose as the first pre-freeze company compatibility/smoke artifact.
 
 ## After the first test
 
-If the bounded test passes, update canonical recovery docs with the actual Framework run/SHA, each bounded check result, whether a manual record was retained, and whether Admin Override was used. Do not inflate the evidence class.
+The bounded test result has been recorded in canonical recovery docs. Any future rerun against changed Framework bytes must use a new exact artifact identity; results from `303683729...` cannot be reused to certify different wheel bytes.
 
-If a bounded test fails, retain which check failed, fix/retest, and do not use Admin Override merely to conceal a known Framework defect.
+If a later real bounded or strict-lane test fails, retain which check failed, fix/retest, and do not use Admin Override merely to conceal a known Framework defect.
 
 ## Evidence vocabulary boundary
 
 Green CI, a candidate-capable wheel, successful package installation, a Notebook dropdown, an administrator decision, or a source-controlled reference is not proof for a check that did not run.
 
-The manual lane may legitimately say `CERTIFIED` because an administrator explicitly accepted a candidate. Keep that provenance distinct from evidence-based `FABRIC PROVEN`, `PRODUCTION DB PROVEN`, `FABRIC WAREHOUSE PROVEN`, and `RELEASE PROVEN`.
+The 2026-09-03 manual lane legitimately says `CERTIFIED` for the exact bounded checks that were actually executed with exact candidate identity and no Admin Override. Keep that provenance distinct from evidence-based `PRODUCTION DB PROVEN`, `FABRIC WAREHOUSE PROVEN`, and `RELEASE PROVEN`.
