@@ -117,9 +117,13 @@ def test_first_company_fabric_test_recovery_context_is_locked():
         "9753976212",
         "0638c95c19ebcc43ec4ec462b7f960a164209874223517e3f74b951264b0eaf6",
         "TEST_FRAMEWORK_IN_COMPANY_FABRIC.md",
-        "first company-Fabric test executed            no",
+        "first company-Fabric test executed            yes — bounded PASS/NOT_RUN result",
+        "manual Notebook certification                 CERTIFIED",
+        "manual Admin Override                         not used",
+        "manual release authorization                  false",
         "release_allowed                    false",
         "Framework exact candidate                    not frozen",
+        "Customer production pin                       fabric-data-framework==0.3.0",
     ):
         assert token in status
 
@@ -129,6 +133,8 @@ def test_first_company_fabric_test_recovery_context_is_locked():
     assert "warehouse.ambiguous_commit = NOT_RUN" in wrapper_text
     assert "Dropdowns **record what you observed**" in wrapper_text
     assert "Authorize exact-candidate release = OFF" in wrapper_text
+    assert "admin override                     false" in wrapper_text
+    assert "release authorized                 false" in wrapper_text
 
     certification_text = certification_runbook.read_text()
     assert "Lane A — bounded company-Fabric Notebook validation" in certification_text
