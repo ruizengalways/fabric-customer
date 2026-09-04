@@ -128,13 +128,15 @@ def test_first_company_fabric_test_recovery_context_is_locked():
         assert token in status
 
     wrapper_text = wrapper.read_text()
-    assert "candidate-capable, not frozen" in wrapper_text
-    assert "warehouse.commit = NOT_RUN" in wrapper_text
-    assert "warehouse.ambiguous_commit = NOT_RUN" in wrapper_text
-    assert "Dropdowns **record what you observed**" in wrapper_text
-    assert "Authorize exact-candidate release = OFF" in wrapper_text
+    assert "unified real-Fabric certification is the default path" in wrapper_text
+    assert "from fabric_data_framework.certification import certify" in wrapper_text
+    assert "allow_live_mutations=True" in wrapper_text
+    assert "warehouse.commit                   NOT_RUN" in wrapper_text
+    assert "warehouse.ambiguous_commit         NOT_RUN" in wrapper_text
     assert "admin override                     false" in wrapper_text
     assert "release authorized                 false" in wrapper_text
+    assert "release_authorized = false" in wrapper_text
+    assert "fabric-data-framework==0.3.0" in wrapper_text
 
     certification_text = certification_runbook.read_text()
     assert "Lane A — bounded company-Fabric Notebook validation" in certification_text
