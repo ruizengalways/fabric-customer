@@ -1,0 +1,21 @@
+{
+  "execution_group": "health_scd2",
+  "failure_policy": "FAIL_AT_END",
+  "max_concurrency": 8,
+  "quality_defaults": {
+    "enabled": true,
+    "quarantine_enabled": true,
+    "quarantine_detail_mode": "FULL",
+    "max_quarantine_rows": 50,
+    "max_quarantine_fraction": 0.002
+  },
+  "dataset_quality_overrides": {
+    "health.history_001": {
+      "max_quarantine_rows": 5,
+      "max_quarantine_fraction": 0.0005
+    },
+    "health.history_002": {
+      "quarantine_enabled": false
+    }
+  }
+}

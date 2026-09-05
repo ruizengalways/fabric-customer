@@ -4,19 +4,19 @@ Last updated: 2026-09-05
 
 ## New-conversation recovery checkpoint
 
-**GitHub `main` is truth.** Re-read current Framework and Customer `main` before making release/governance decisions. Do not recover candidate identity from chat memory.
+**GitHub `main` is truth.** Re-read current Framework and Customer `main` before release/governance decisions. Do not recover candidate identity from chat memory.
 
-Current project direction:
+Current direction:
 
 ```text
 Framework 0.4 source is development/unreleased
 Customer production runtime remains on released Framework v0.3.0
-unified real-Fabric certification is the default test path
-reusable certification Pipeline/worker is merged + main-CI proven
-one-command DEV/UAT Notebook/Pipeline Fabric API deployer is merged + main-CI proven
-actual company-Fabric certification items have not yet been deployed from this source
-current Framework PR #105 wheel has not yet been executed in real Fabric
-strict release evidence is still incomplete
+normal multi-table Pipeline operations/recovery is now a first-class product concern
+unified real-Fabric certification remains the default certification path
+reusable certification Pipeline/worker and DEV/UAT item deployer are merged + main-CI proven
+actual company-Fabric certification items from that deployer are not yet evidenced as deployed
+current Framework PR #107 wheel has not yet been executed in real Fabric
+strict release evidence is incomplete
 no exact Framework candidate is frozen
 no 0.4 release is authorized
 ```
@@ -25,14 +25,13 @@ Read in this order after a context reset:
 
 ```text
 1. fabric-customer/docs/CURRENT_STATUS.md
-2. fabric-customer/docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
-3. fabric-customer/docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md
-4. fabric-customer/certification/fabric_items/deploy_fabric_items.py
-5. fabric-customer/docs/runbooks/CONTROL_PLANE_EXTERNAL_EVIDENCE_REVIEW.md
+2. fabric-customer/docs/runbooks/OPERATE_MULTI_TABLE_PIPELINES.md
+3. fabric-customer/examples/pipeline_development/README.md
+4. fabric-customer/docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
+5. fabric-customer/docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md
 6. fabric-data-framework/docs/machine/STATE.md
-7. fabric-data-framework/docs/machine/UNIFIED_CERTIFICATION.md
-8. fabric-data-framework/docs/human/ONE_CALL_CERTIFICATION_RUNTIME.md
-9. fabric-data-framework/docs/human/FABRIC_PIPELINE_CHILD_CONTRACT.md
+7. fabric-data-framework/docs/human/PIPELINE_OPERATIONS_AND_RECOVERY.md
+8. fabric-data-framework/docs/machine/UNIFIED_CERTIFICATION.md
 ```
 
 ## Hard governance locks
@@ -48,13 +47,22 @@ strict_release_ready: false
 known_strict_required_blockers: 15
 ```
 
-Do not change the Customer production dependency until immutable Framework `v0.4.0` exists and release governance explicitly permits migration.
-
-A bounded/manual/unified certification result cannot silently freeze/select a candidate and cannot publish a release. `UnifiedCertificationReport.release_authorized=false` remains structural.
+Do not change the Customer production dependency until immutable Framework `v0.4.0` exists and release governance explicitly permits migration. A bounded/manual/unified certification result cannot silently freeze/select a candidate or publish a release; `release_authorized=false` remains structural for the unified report.
 
 ## Customer project / 100-table product baseline
 
-Certification work does not replace the normal reusable Customer-project contract. This repo remains a realistic domain/project reference implementation, including the product-grade one-repo 100-table Health example:
+The normal reusable Customer-project contract remains:
+
+```text
+fabric-framework project-init <repo> --domain <domain>
+-> source-controlled DatasetConfig / semantic selections
+-> assign execution_group
+-> fabric-framework project-validate <repo>
+-> GitHub CI
+-> approved DEV/UAT deployment
+```
+
+The one-repo Health reference remains:
 
 ```text
 50 FULL      -> REPLACE
@@ -63,76 +71,73 @@ Certification work does not replace the normal reusable Customer-project contrac
 10 CDC       -> UPSERT using Debezium/external CDC
 ```
 
-The ordinary project workflow remains:
-
-```text
-fabric project-init
--> source-controlled DatasetConfig / semantic selections
--> fabric project-validate
--> GitHub CI
--> approved environment deployment
-```
-
-The `customer-ci` project compatibility lane is separately pinned to the exact Framework-next source SHA:
+The `customer-ci` project compatibility lane remains intentionally pinned to its historical exact Framework-next project-contract SHA:
 
 ```text
 FRAMEWORK_NEXT_SHA = 148e02e3fff7861f238296e7554815a6fd49dd0a
 ```
 
-This SHA is part of the existing 100-table project/bootstrap contract and is independent from the 0.4 certification compatibility SHA below. Do not replace one with the other merely because both point at Framework development source.
+That SHA is independent from the current 0.4 certification compatibility SHA. Do not replace one with the other merely because both are Framework development lines.
 
-## Current Framework identities
-
-Current Framework Git `main` is the recovery docs/test checkpoint from PR #106:
+Normal Pipeline development guidance now lives in:
 
 ```text
-Framework main / docs-test checkpoint SHA  8e90b245891095652109792ac7b8be3aa86dd1ac
-PR #106 framework-ci                       33963161022 SUCCESS
-independent main framework-ci              33963214986 SUCCESS
+examples/pipeline_development/README.md
+docs/runbooks/OPERATE_MULTI_TABLE_PIPELINES.md
 ```
 
-That docs/test checkpoint did **not** change Framework executable source. The substantive executable Framework baseline remains PR #105:
+The forward-looking 0.4 examples cover all four Health execution groups and use `FAIL_AT_END`, bounded concurrency, DQ/quarantine budgets and per-table overrides. They are not production runtime config while Customer remains on v0.3.0.
+
+## Current Framework executable identity — PR #107
+
+Current Framework `main` substantive executable baseline is PR #107:
 
 ```text
-PR                            #105
-substantive executable SHA    cb9f9be77a98a0a5aa8c5f85e0fa3d92697c60f0
-PR framework-ci               33961766325 SUCCESS
-independent main framework-ci 33961827610 SUCCESS
+PR                            #107
+merge/main SHA                4c8ad9994f3800e901c146b919f85454d78f080e
+PR framework-ci               33967940246 SUCCESS
+independent main framework-ci 33968014547 SUCCESS
 Python 3.11                   SUCCESS
 Python 3.13                   SUCCESS
 build-wheel                   SUCCESS
 release-readiness-contract    SUCCESS
 ```
 
-Exact executable Framework artifact for the next real-Fabric execution, unless Framework executable source changes:
+Exact current main artifact:
 
 ```text
-artifact name       framework-wheel-cb9f9be77a98a0a5aa8c5f85e0fa3d92697c60f0
-artifact ID         9968172160
-artifact ZIP digest sha256:2b746b43237d221331ba6418459b2d2d3f62dfc3eaf98d4e3897384787bbefa6
+artifact name       framework-wheel-4c8ad9994f3800e901c146b919f85454d78f080e
+artifact ID         9970044954
+artifact ZIP digest sha256:7c297a36eb3146356f2ba7a39e87e9fee3f2ea53bc9a9711cbebe9031ec00a97
 wheel filename      fabric_data_framework-0.4.0-py3-none-any.whl
-wheel SHA256        13c9c7696f9c657243af1133731bf58600cffb3a78f77bede606a1b00a6c2c79
-workflow run ID     33961827610
+wheel SHA256        06d4a9ca948693c87a658a34e8c4fccb42439a7f9f67c44985ac726dedb4e04d
+workflow run ID     33968014547
 workflow attempt    1
+selected/frozen     false
+real-Fabric result  NOT YET
 ```
 
-PR #105 owns the one-call runtime bridge and explicit first-time dedicated Control Plane bootstrap. First-time `allow_control_plane_migration=True` requires bounded PASS + exact Customer identity before current schema and exact Customer semantic metadata are materialized.
-
-Framework PR #104 is the durable-Pipeline child milestone:
+PR #107 changes executable bytes and adds:
 
 ```text
-PR/main SHA        94cc0c90631a6582c8ba84911bc100195e2fbb86
-main CI            33959169173 SUCCESS
-capability          reusable seven-parameter Fabric Pipeline child contract
+FAIL_AT_END parent Pipeline aggregation
+dataset fault isolation + dependency BLOCKED semantics
+pipeline_run aggregate error persistence
+Control Plane schema v5 additive migration
+source-controlled ExecutionGroupPolicy
+DQ enabled/quarantine enabled/detail-mode contracts
+absolute + fractional quarantine budgets
+governed full quarantine payload retention
+conservative recovery classification/planning
 ```
 
-The remote child validates exact DatasetConfig/effective-config/execution-plan identity and persists the exact terminal `DatasetRunAudit`/`DatasetDispatchOutcome`. Fabric provider `Completed` alone is never semantic PASS.
+Therefore the former PR #105 wheel (`13c9c769...`) is historical old bytes for future certification purposes. Any real-Fabric PASS for older Framework bytes cannot be projected onto PR #107.
 
-There is **not yet** a real-Fabric execution result for the PR #105 wheel.
+PR #105 remains the historical one-call runtime/first-time Control Plane bootstrap milestone, and PR #104 remains the durable seven-parameter Pipeline-child milestone. Their capabilities remain in current source, but their exact wheel identities are not current.
 
-## Current Customer substantive certification/deployment baseline
+## Current Customer substantive deployment baseline
 
-Customer PR #23 is **MERGED + MAIN CI PROVEN** and is now the substantive Customer certification/deployment tooling baseline:
+Customer PR #23 remains the merged substantive certification/deployment tooling baseline:
 
 ```text
 PR                                  #23
@@ -143,16 +148,14 @@ independent main customer-ci        33963703737 SUCCESS
 independent main certification      33963703747 SUCCESS
 ```
 
-PR #23 contains the earlier PR #21 reusable Pipeline/worker surface plus the fail-closed Fabric item deployer. It did not change Framework executable bytes.
-
-The preceding milestones remain historical/current-source ancestry:
+Customer PR #24 is a later documentation/recovery checkpoint:
 
 ```text
-PR #21 substantive Pipeline/worker baseline  cedba6673f08ddfda9cae2e29a27cc6ecc768b58
-PR #22 docs/recovery checkpoint              cafb79405df4bbb8600047fd67b6133a5c27f0f3
+Customer main before the current operations-reference change
+c0c01c9f84b3922a558dd05e31bd0cc02ed01099
 ```
 
-A later docs-only recovery checkpoint may become Customer Git `main` after this file is merged. That later SHA is informational unless an exact Customer candidate-input artifact is deliberately produced from it; the substantive deployer implementation baseline remains PR #23 `88d7c3b7...`.
+The current operations-reference change adds the 0.4 execution-group examples, normal Pipeline recovery runbook and CI compatibility update. Its exact merged Customer `main` SHA is recorded in the next post-merge checkpoint rather than guessed in advance.
 
 The Customer production dependency remains exactly:
 
@@ -160,11 +163,11 @@ The Customer production dependency remains exactly:
 fabric-data-framework==0.3.0
 ```
 
-The certification-contract CI lane validates Customer certification source against Framework PR #105 source. This compatibility lane is separate from the released Customer production dependency.
+The separate certification-contract CI lane now validates Customer certification and 0.4 operations examples against Framework PR #107 source `4c8ad9994f3800e901c146b919f85454d78f080e`.
 
-## Merged reusable certification Pipeline + deployer surface
+## Reusable certification Pipeline + deployer truth
 
-Current substantive source includes:
+Merged substantive source includes:
 
 ```text
 certification/fabric_items/
@@ -176,8 +179,6 @@ certification/fabric_items/
 
 certification/project/config/certification/pipeline-worker.json
 certification/extensions/src/fabric_customer_certification_extensions/pipeline_worker.py
-certification/extensions/src/fabric_customer_certification_extensions/business_driver.py
-certification/extensions/src/fabric_customer_certification_extensions/business_observer.py
 docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md
 docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
 ```
@@ -194,71 +195,21 @@ effective_config_hash
 execution_plan_hash
 ```
 
-The worker supports the five representative live business paths:
+The deployer remains fail-closed: DEV/UAT only, explicit `--apply`, runtime token only, duplicate display names rejected, LRO polling bounded to the approved Fabric host, non-secret retained output, and `certification_result = NOT_RUN`.
 
-```text
-full.replace
-watermark.scd1
-watermark.scd2
-retry.idempotency
-reconciliation.fail_closed
-```
-
-Business-path driver/observer use the same exact runtime binding:
-
-```text
-WAREHOUSE_DATABASE_URL
-```
-
-There is no separate JSON-wrapped business-path secret channel.
-
-## Fabric item deployer contract — merged and CI proven
-
-Preferred path for an isolated approved DEV/UAT certification workspace:
-
-```bash
-export FABRIC_ACCESS_TOKEN='<approved runtime token>'
-python certification/fabric_items/deploy_fabric_items.py \
-  --apply \
-  --environment DEV \
-  --workspace-id <CERTIFICATION_WORKSPACE_UUID> \
-  --key-vault-url https://<approved-vault>.vault.azure.net/ \
-  --control-plane-secret-name <CONTROL_PLANE_URL_SECRET_NAME> \
-  --warehouse-secret-name <WAREHOUSE_URL_SECRET_NAME>
-```
-
-Merged contract:
-
-```text
-DEV/UAT only; PROD rejected
-explicit --apply required
-Fabric access token is read from runtime environment only
-no token or SQL URL retained in deployment-result.json
-exact display-name duplicates fail closed; no guessing
-create or update repository-owned Notebook definition
-bind actual returned Notebook UUID into Data Pipeline definition
-create or update repository-owned Data Pipeline definition
-Fabric long-running operations are polled to a terminal result
-pagination/operation URLs cannot leave the approved Fabric API host
-non-secret output includes actual Notebook/Pipeline UUIDs + definition hashes
-certification_result = NOT_RUN
-```
-
-PR #23 contract tests cover create, update, duplicate-name failure, PROD rejection, actual Notebook-ID binding, LRO polling, pagination/host restriction and retained-result secret boundaries.
-
-**Important:** merged/green deployment code does not mean the company Fabric workspace has been mutated. Current actual deployment truth is still:
+Merged/green deployment code does **not** mean the company workspace was mutated. Current actual deployment truth remains:
 
 ```text
 repository_owned_certification_notebook_deployed = false / not yet evidenced
 repository_owned_certification_pipeline_deployed = false / not yet evidenced
-current_pr105_real_fabric_certification_executed = false
+current_pr107_real_fabric_certification_executed = false
 ```
 
-The render-only/manual path remains an organizational-policy fallback.
+The immediate live step still requires an organization-approved Fabric API access token and an isolated approved DEV/UAT workspace. Run `deploy_fabric_items.py` once only when those prerequisites are real; retain only its non-secret result.
 
-## Historical first company-Fabric bounded result — old bytes only
+## Historical first company-Fabric bounded result — PR #99 old bytes only
 
-The first real company-Fabric bounded execution remains valid historical evidence for its exact Framework PR #99 artifact only:
+The first company-Fabric bounded execution remains historical evidence for its exact PR #99 artifact only:
 
 ```text
 Framework SHA        303683729c4915d78200d463a6def01c8de9eae6
@@ -282,12 +233,12 @@ warehouse.commit                NOT_RUN
 warehouse.ambiguous_commit      NOT_RUN
 manual Notebook certification   CERTIFIED
 manual Admin Override           not used
-manual release authorization    false
+manual release authorized       false
 ```
 
-That run must **not** be copied forward as proof for Framework PR #104/#105 bytes. The historical certification form was a result recorder, not the source of PASS; PASS values came from actual bounded checks executed in company Fabric.
+Do not reuse those PASS values for PR #107 bytes. The form was a result recorder; PASS came from actual checks executed in company Fabric.
 
-## Control Plane configuration and real evidence
+## Control Plane configuration and strict evidence
 
 Selected certification profile remains:
 
@@ -296,17 +247,9 @@ environment = DEV
 control_plane_profile = fabric_sql_database_v1
 ```
 
-The Framework does not scan the workspace and guess a SQL Database. The exact Customer runner config declares the runtime variable name and the Notebook/runtime supplies the actual approved value:
+Framework does not scan the workspace and guess a SQL Database. `runner-config.json` declares the runtime variable name; the Notebook/runtime supplies the actual approved value.
 
-```text
-runner-config.json:
-  control_plane_database_url_env_var = CONTROL_PLANE_DATABASE_URL
-
-runtime only:
-  CONTROL_PLANE_DATABASE_URL = <actual approved dedicated certification DB URL>
-```
-
-For a newly created dedicated certification SQL Database, first-time bootstrap is explicitly:
+A newly created dedicated certification SQL Database may use the explicit first-time path only after bounded PASS + exact Customer/Framework identity:
 
 ```python
 report = certify(
@@ -320,9 +263,7 @@ report = certify(
 )
 ```
 
-This first runs exact bounded checks, verifies exact Customer/Framework identity, then applies current Control Plane schema plus exact Customer semantic metadata. Normal reruns keep migration disabled.
-
-Seven enterprise Control Plane evidence references still need real internal evidence/review before strict approved Control Plane certification can PASS:
+Seven real enterprise evidence references are still required for strict Control Plane certification:
 
 ```text
 backend_service_identity_reference
@@ -334,88 +275,59 @@ monitoring_alerting_reference
 retention_governance_reference
 ```
 
-Current blocker semantics remain real:
+Current blocker semantics remain honest:
 
 ```text
 control_plane_external_evidence_incomplete
 control_plane_external_evidence_not_review_bound
-```
-
-Do not fabricate public placeholder evidence to clear them.
-
-## Warehouse strict evidence
-
-A dedicated DEV Warehouse may be used for the certification lane, but strict normal/fault evidence remains governed.
-
-Current blocker:
-
-```text
 warehouse_real_fault_controller_not_configured
 ```
 
-A dedicated Warehouse alone is not a real ambiguous-COMMIT fault controller. Do not substitute ad-hoc SQL or synthetic exceptions for the Framework-approved Warehouse evidence runner.
+Never fabricate placeholders to clear them.
 
-Admin-level exact-session termination must remain separately authorized. `allow_live_mutations=True` never implies session-termination permission.
+## Warehouse strict evidence
 
-Never fault inject against a shared/PROD Warehouse.
+A dedicated DEV Warehouse is not by itself an approved ambiguous-COMMIT fault controller. Do not substitute ad-hoc SQL/synthetic exceptions for the Framework-approved runner. Admin-level exact-session termination remains separately authorized and must never be inferred from ordinary live-mutation permission. Never fault inject against shared/PROD Warehouse.
 
-## Identity boundary: executable source versus recovery checkpoints
+## Normal business Pipeline recovery boundary
 
-Keep these identities separate:
+For daily/production incidents, use `docs/runbooks/OPERATE_MULTI_TABLE_PIPELINES.md` rather than certification tooling.
+
+Default repair mapping:
 
 ```text
-Framework current Git main docs/test checkpoint    8e90b245891095652109792ac7b8be3aa86dd1ac
-Framework substantive executable source baseline   cb9f9be77a98a0a5aa8c5f85e0fa3d92697c60f0
-Framework exact executable wheel SHA256             13c9c7696f9c657243af1133731bf58600cffb3a78f77bede606a1b00a6c2c79
-Customer substantive deployer/source baseline       88d7c3b7b473ad84b5d96aa472293ae24c055c88
-later Customer docs-only recovery SHA               informational unless deliberately selected
+explicit transient + retryable=true -> bounded RETRY
+DQ threshold exceeded -> fix data/rule then REPLAY
+DQ failure with quarantine disabled -> fix data/rule/config then RETRY
+reconciliation fail -> investigate before reprocess
+BLOCKED dependency -> recover upstream first
+UNKNOWN_COMMIT -> reconcile target/operation evidence before retry
+bounded source gap -> BACKFILL
+authoritative reset only -> FULL_REBUILD
 ```
 
-A docs-only commit does not create a new real-Fabric PASS, freeze a candidate or authorize release. A Customer docs-only SHA may still become the exact Customer Git SHA of a future retained bundle if the workflow is intentionally run from it; record that exact identity rather than silently substituting the substantive source SHA.
-
-## Repository state after PR #23
-
-The repository-side Notebook/Pipeline setup automation slice is complete and main-CI proven.
-
-Do **not** modify Framework executable source merely to improve operator ergonomics before the next real-Fabric execution, because that would produce new Framework bytes and invalidate the selected PR #105 wheel identity for testing.
-
-Possible later repository enhancements should be evaluated against whether they reduce a real remaining operator burden without changing Framework bytes. The current immediate blocker to progressing the bounded real-Fabric lane is no longer missing Notebook/Pipeline source or deployment automation; it is the absence of an actual approved DEV deployment and exact environment-local bindings.
+Whole-Pipeline blind retry is not the default incident response.
 
 ## Next real-Fabric phase
 
-Proceed one principal step at a time:
+Use the exact current PR #107 artifact unless Framework executable source changes again:
 
 ```text
-1. acquire an organization-approved Fabric API access token for the isolated DEV certification workspace
-2. run deploy_fabric_items.py once and retain the non-secret Notebook/Pipeline UUID result
+1. obtain organization-approved Fabric API token for isolated DEV certification workspace
+2. run deploy_fabric_items.py once and retain non-secret Notebook/Pipeline UUID result
 3. prepare dedicated Warehouse fixture tables
 4. verify separate real item-read/Copy/Spark UUIDs
-5. build exact Customer candidate-input artifact for exact Framework PR #105 wheel + exact selected Customer source SHA
+5. build exact Customer candidate-input artifact against PR #107 wheel + exact selected Customer SHA
 6. upload exact Framework wheel/CANDIDATE/SHA256SUMS + customer-inputs
 7. run bounded certification first
 8. STOP on any real bounded FAIL
-9. first-time Control Plane bootstrap only for a newly created dedicated certification DB
+9. first-time Control Plane bootstrap only for a new dedicated certification DB
 10. proceed to ordinary live stages only with approved mutations
 11. keep missing external evidence/fault controller as BLOCKED/NOT_RUN
 ```
 
-Do not reuse the historical PR #99 PASS values for the PR #105 wheel.
-
 ## Strict release path remains later
 
-Even after deployment automation works, full Framework 0.4 release still requires:
-
-```text
-complete reviewed real Control Plane external evidence
-exact review binding
-approved reachable Warehouse ambiguous-COMMIT fault controller
-explicit session-termination authorization when required
-NEW exact Framework candidate explicitly selected/frozen only after prerequisites are genuinely ready
-strict integration evidence
-five live business-path proofs
-release proof bundle
-candidate certification with blockers=[] / release_ready=true
-release exact certified bytes without rebuilding
-```
+Framework 0.4 release still requires complete reviewed real Control Plane evidence, exact review binding, approved reachable Warehouse ambiguous-COMMIT control, explicit session-termination authorization where required, then explicit selection/freeze of a **new exact** Framework candidate, strict integration evidence, five live business-path proofs, release proof bundle, blockers `[]`, and promotion of exact certified bytes without rebuild.
 
 Only after immutable `v0.4.0` exists may Customer production pin migration be considered.
