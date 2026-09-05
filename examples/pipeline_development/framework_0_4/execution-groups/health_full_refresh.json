@@ -10,10 +10,10 @@
     "max_quarantine_fraction": 0.001
   },
   "dataset_quality_overrides": {
-    "health.patient_financial_account": {
+    "health.reference_001": {
       "quarantine_enabled": false
     },
-    "health.provider_directory": {
+    "health.reference_002": {
       "max_quarantine_rows": 500,
       "max_quarantine_fraction": 0.01
     }

@@ -1,0 +1,21 @@
+{
+  "execution_group": "health_debezium",
+  "failure_policy": "FAIL_AT_END",
+  "max_concurrency": 4,
+  "quality_defaults": {
+    "enabled": true,
+    "quarantine_enabled": true,
+    "quarantine_detail_mode": "FULL",
+    "max_quarantine_rows": 25,
+    "max_quarantine_fraction": 0.001
+  },
+  "dataset_quality_overrides": {
+    "health.cdc_001": {
+      "max_quarantine_rows": 5,
+      "max_quarantine_fraction": 0.0005
+    },
+    "health.cdc_002": {
+      "quarantine_enabled": false
+    }
+  }
+}
