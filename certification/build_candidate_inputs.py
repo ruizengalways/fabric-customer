@@ -4,16 +4,24 @@ This script runs only after an exact 0.4 framework candidate wheel has been veri
 installed. It binds customer/domain release identity, the framework wheel identity,
 physical non-secret item IDs, source-controlled recipes and the exact extension wheel.
 It never executes Fabric and never creates readiness PASS evidence.
+
+Physical item identities may be supplied explicitly for backwards compatibility or via
+a verified ``fabric-bindings.json`` produced by ``resolve_fabric_bindings.py``. The
+verified file is preferred for real environments because it avoids hand-copying UUIDs
+and preserves the exact read-only Fabric API verification provenance.
 """
 
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from importlib.metadata import version as installed_version
 import json
 from pathlib import Path
 import re
 import shutil
+from typing import Mapping
+from uuid import UUID
 
 from fabric_data_framework.contracts.environment import EnvironmentName
 from fabric_data_framework.control_plane.certification import ControlPlaneExternalEvidence
@@ -54,6 +62,17 @@ _DOMAIN = "customer-certification"
 _EXTENSION_WHEEL = "fabric_customer_certification_extensions-0.4.0.dev0-py3-none-any.whl"
 
 
+@dataclass(frozen=True)
+class _PhysicalBindings:
+    workspace_id: str
+    item_read_id: str
+    pipeline_item_id: str
+    copy_job_id: str
+    spark_job_id: str
+    source: str
+    source_sha256: str | None = None
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument("--project-root", type=Path, default=Path("certification/project"))
@@ -64,17 +83,164 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--candidate-wheel-sha256", required=True)
     parser.add_argument("--framework-version", required=True)
     parser.add_argument("--environment", choices=("DEV", "UAT", "PROD"), required=True)
-    parser.add_argument("--workspace-id", required=True)
-    parser.add_argument("--item-read-id", required=True)
-    parser.add_argument("--pipeline-item-id", required=True)
-    parser.add_argument("--copy-job-id", required=True)
-    parser.add_argument("--spark-job-id", required=True)
+    parser.add_argument(
+        "--fabric-bindings",
+        type=Path,
+        help="Verified fabric-bindings.json from resolve_fabric_bindings.py. Preferred for real Fabric.",
+    )
+    parser.add_argument("--workspace-id")
+    parser.add_argument("--item-read-id")
+    parser.add_argument("--pipeline-item-id")
+    parser.add_argument("--copy-job-id")
+    parser.add_argument("--spark-job-id")
     parser.add_argument(
         "--control-plane-profile",
         choices=("fabric_sql_database_v1", "azure_sql_database_v1"),
         required=True,
     )
     return parser
+
+
+def _uuid(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{label} must be a UUID")
+    try:
+        return str(UUID(value))
+    except ValueError as exc:
+        raise ValueError(f"{label} must be a UUID") from exc
+
+
+def _mapping(value: object, label: str) -> Mapping[str, object]:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{label} must be an object")
+    return value
+
+
+def _verified_binding_item(
+    root: Mapping[str, object],
+    key: str,
+    *,
+    expected_type: str | None,
+) -> str:
+    item = _mapping(root.get(key), f"fabric bindings {key}")
+    if expected_type is not None and item.get("type") != expected_type:
+        raise ValueError(
+            f"fabric bindings {key} type mismatch: expected={expected_type!r} observed={item.get('type')!r}"
+        )
+    if expected_type is None:
+        observed_type = item.get("type")
+        if not isinstance(observed_type, str) or not observed_type:
+            raise ValueError("fabric bindings item_read must retain the exact Fabric item type")
+    display_name = item.get("display_name")
+    if not isinstance(display_name, str) or not display_name:
+        raise ValueError(f"fabric bindings {key} must retain the exact display name")
+    return _uuid(item.get("id"), f"fabric bindings {key} id")
+
+
+def _require_optional_match(explicit: str | None, resolved: str, label: str) -> None:
+    if explicit is None:
+        return
+    if _uuid(explicit, label) != resolved:
+        raise ValueError(f"explicit {label} conflicts with verified fabric-bindings.json")
+
+
+def _load_verified_fabric_bindings(
+    path: Path,
+    *,
+    environment: str,
+    explicit_workspace_id: str | None,
+    explicit_item_read_id: str | None,
+    explicit_pipeline_item_id: str | None,
+    explicit_copy_job_id: str | None,
+    explicit_spark_job_id: str | None,
+) -> _PhysicalBindings:
+    if not path.is_file():
+        raise ValueError(f"fabric bindings file does not exist: {path}")
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError("fabric bindings file is not valid JSON") from exc
+    root = _mapping(value, "fabric bindings")
+    if root.get("schema_version") != 1:
+        raise ValueError("unsupported fabric bindings schema_version")
+    if root.get("verification_status") != "VERIFIED":
+        raise ValueError("fabric bindings must have verification_status=VERIFIED")
+    if root.get("environment") != environment:
+        raise ValueError("fabric bindings environment does not match requested environment")
+    if root.get("contains_secret_values") is not False:
+        raise ValueError("fabric bindings must declare contains_secret_values=false")
+    if root.get("certification_result") != "NOT_RUN":
+        raise ValueError(
+            "fabric bindings must remain a binding-only record with certification_result=NOT_RUN"
+        )
+    deployment_hash = root.get("deployment_result_sha256")
+    if not isinstance(deployment_hash, str) or _SHA64.fullmatch(deployment_hash) is None:
+        raise ValueError("fabric bindings deployment_result_sha256 must be lowercase SHA256")
+
+    workspace_id = _uuid(root.get("workspace_id"), "fabric bindings workspace_id")
+    item_read_id = _verified_binding_item(root, "item_read", expected_type=None)
+    pipeline_item_id = _verified_binding_item(root, "pipeline", expected_type="DataPipeline")
+    copy_job_id = _verified_binding_item(root, "copy_job", expected_type="CopyJob")
+    spark_job_id = _verified_binding_item(
+        root,
+        "spark_job",
+        expected_type="SparkJobDefinition",
+    )
+    # Notebook is not consumed by the IntegrationRunner, but requiring it here preserves
+    # the deployment -> exact child Pipeline identity chain in the retained binding file.
+    _verified_binding_item(root, "notebook", expected_type="Notebook")
+
+    _require_optional_match(explicit_workspace_id, workspace_id, "workspace_id")
+    _require_optional_match(explicit_item_read_id, item_read_id, "item_read_id")
+    _require_optional_match(explicit_pipeline_item_id, pipeline_item_id, "pipeline_item_id")
+    _require_optional_match(explicit_copy_job_id, copy_job_id, "copy_job_id")
+    _require_optional_match(explicit_spark_job_id, spark_job_id, "spark_job_id")
+
+    return _PhysicalBindings(
+        workspace_id=workspace_id,
+        item_read_id=item_read_id,
+        pipeline_item_id=pipeline_item_id,
+        copy_job_id=copy_job_id,
+        spark_job_id=spark_job_id,
+        source="verified_fabric_bindings",
+        source_sha256=artifact_sha256(path),
+    )
+
+
+def _resolve_physical_bindings(args: argparse.Namespace) -> _PhysicalBindings:
+    if args.fabric_bindings is not None:
+        return _load_verified_fabric_bindings(
+            args.fabric_bindings,
+            environment=args.environment,
+            explicit_workspace_id=args.workspace_id,
+            explicit_item_read_id=args.item_read_id,
+            explicit_pipeline_item_id=args.pipeline_item_id,
+            explicit_copy_job_id=args.copy_job_id,
+            explicit_spark_job_id=args.spark_job_id,
+        )
+
+    values = {
+        "workspace_id": args.workspace_id,
+        "item_read_id": args.item_read_id,
+        "pipeline_item_id": args.pipeline_item_id,
+        "copy_job_id": args.copy_job_id,
+        "spark_job_id": args.spark_job_id,
+    }
+    missing = [name for name, value in values.items() if value is None]
+    if missing:
+        raise ValueError(
+            "explicit physical bindings are incomplete; provide --fabric-bindings or all of: "
+            "--workspace-id --item-read-id --pipeline-item-id --copy-job-id --spark-job-id; "
+            f"missing={missing}"
+        )
+    return _PhysicalBindings(
+        workspace_id=_uuid(args.workspace_id, "workspace_id"),
+        item_read_id=_uuid(args.item_read_id, "item_read_id"),
+        pipeline_item_id=_uuid(args.pipeline_item_id, "pipeline_item_id"),
+        copy_job_id=_uuid(args.copy_job_id, "copy_job_id"),
+        spark_job_id=_uuid(args.spark_job_id, "spark_job_id"),
+        source="explicit_cli",
+    )
 
 
 def _require_identity(args: argparse.Namespace) -> None:
@@ -195,6 +361,7 @@ def _validate_release_inputs(
 def main() -> int:
     args = _parser().parse_args()
     _require_identity(args)
+    physical = _resolve_physical_bindings(args)
     project_root = args.project_root.resolve()
     if not project_root.is_dir():
         raise ValueError(f"project root does not exist: {project_root}")
@@ -236,24 +403,24 @@ def main() -> int:
         bindings=(
             IntegrationCheckPhysicalBinding(
                 check_id="fabric.item.read",
-                workspace_id=args.workspace_id,
-                item_id=args.item_read_id,
+                workspace_id=physical.workspace_id,
+                item_id=physical.item_read_id,
             ),
             IntegrationCheckPhysicalBinding(
                 check_id="fabric.pipeline",
-                workspace_id=args.workspace_id,
-                item_id=args.pipeline_item_id,
+                workspace_id=physical.workspace_id,
+                item_id=physical.pipeline_item_id,
                 dataset_id="cert.full_replace",
             ),
             IntegrationCheckPhysicalBinding(
                 check_id="fabric.copy",
-                workspace_id=args.workspace_id,
-                item_id=args.copy_job_id,
+                workspace_id=physical.workspace_id,
+                item_id=physical.copy_job_id,
             ),
             IntegrationCheckPhysicalBinding(
                 check_id="fabric.spark",
-                workspace_id=args.workspace_id,
-                item_id=args.spark_job_id,
+                workspace_id=physical.workspace_id,
+                item_id=physical.spark_job_id,
             ),
         ),
     )
@@ -264,6 +431,8 @@ def main() -> int:
     (output / "dist").mkdir(parents=True)
     shutil.copytree(project_root, output / "project")
     shutil.copy2(args.extension_wheel, output / "dist" / args.extension_wheel.name)
+    if args.fabric_bindings is not None:
+        shutil.copy2(args.fabric_bindings, output / "fabric-bindings.json")
     write_json_model(manifest, output / "release-manifest.json")
     write_json_model(runner, output / "runner-config.json")
     input_manifest = {
@@ -277,6 +446,8 @@ def main() -> int:
         "config_bundle_hash": manifest.bundle.config_bundle_hash,
         "extension_wheel_filename": args.extension_wheel.name,
         "extension_wheel_sha256": artifact_sha256(args.extension_wheel),
+        "physical_binding_source": physical.source,
+        "fabric_bindings_sha256": physical.source_sha256,
         "live_prerequisites_configured": live_ready,
         "live_prerequisite_blockers": blockers,
     }
@@ -287,6 +458,7 @@ def main() -> int:
     print(
         "built exact customer certification inputs "
         f"datasets={len(configs)} domain_release_hash={manifest.bundle.release_hash} "
+        f"physical_binding_source={physical.source} "
         f"live_prerequisites_configured={str(live_ready).lower()}"
     )
     return 0
