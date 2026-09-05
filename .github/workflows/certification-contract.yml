@@ -48,11 +48,63 @@ jobs:
             -w build/certification-dist
           test -f build/certification-dist/fabric_customer_certification_extensions-0.4.0.dev0-py3-none-any.whl
 
-      - name: Validate typed certification input bundle
+      - name: Build verified Fabric binding fixture
+        run: |
+          cat > build/fabric-bindings.json <<'JSON'
+          {
+            "schema_version": 1,
+            "verification_status": "VERIFIED",
+            "environment": "DEV",
+            "workspace_id": "00000000-0000-0000-0000-000000000001",
+            "deployment_result_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "notebook": {
+              "id": "00000000-0000-0000-0000-000000000010",
+              "type": "Notebook",
+              "display_name": "framework-certification-worker"
+            },
+            "item_read": {
+              "id": "00000000-0000-0000-0000-000000000011",
+              "type": "Lakehouse",
+              "display_name": "certification-lakehouse"
+            },
+            "pipeline": {
+              "id": "00000000-0000-0000-0000-000000000012",
+              "type": "DataPipeline",
+              "display_name": "framework-certification-child"
+            },
+            "copy_job": {
+              "id": "00000000-0000-0000-0000-000000000013",
+              "type": "CopyJob",
+              "display_name": "framework-certification-copy"
+            },
+            "spark_job": {
+              "id": "00000000-0000-0000-0000-000000000014",
+              "type": "SparkJobDefinition",
+              "display_name": "framework-certification-spark"
+            },
+            "contains_secret_values": false,
+            "certification_result": "NOT_RUN"
+          }
+          JSON
+
+      - name: Validate typed certification input bundle from verified bindings
         run: |
           python certification/build_candidate_inputs.py \
             --extension-wheel build/certification-dist/fabric_customer_certification_extensions-0.4.0.dev0-py3-none-any.whl \
             --output build/certification-inputs \
+            --customer-git-sha "${GITHUB_SHA}" \
+            --candidate-git-sha 1111111111111111111111111111111111111111 \
+            --candidate-wheel-sha256 2222222222222222222222222222222222222222222222222222222222222222 \
+            --framework-version 0.4.0 \
+            --environment DEV \
+            --fabric-bindings build/fabric-bindings.json \
+            --control-plane-profile fabric_sql_database_v1
+
+      - name: Validate backwards-compatible explicit binding path
+        run: |
+          python certification/build_candidate_inputs.py \
+            --extension-wheel build/certification-dist/fabric_customer_certification_extensions-0.4.0.dev0-py3-none-any.whl \
+            --output build/certification-inputs-explicit \
             --customer-git-sha "${GITHUB_SHA}" \
             --candidate-git-sha 1111111111111111111111111111111111111111 \
             --candidate-wheel-sha256 2222222222222222222222222222222222222222222222222222222222222222 \
@@ -65,19 +117,30 @@ jobs:
             --spark-job-id 00000000-0000-0000-0000-000000000014 \
             --control-plane-profile fabric_sql_database_v1
 
-      - name: Assert fail-closed live boundary
+      - name: Assert fail-closed live boundary and exact physical binding provenance
         run: |
           python - <<'PY'
+          import hashlib
           import json
           from pathlib import Path
+
           value = json.loads(Path("build/certification-inputs/INPUTS.json").read_text())
+          explicit = json.loads(Path("build/certification-inputs-explicit/INPUTS.json").read_text())
           assert value["candidate_git_sha"] == "1" * 40
           assert value["candidate_wheel_sha256"] == "2" * 64
+          assert value["physical_binding_source"] == "verified_fabric_bindings"
+          expected_binding_hash = hashlib.sha256(Path("build/fabric-bindings.json").read_bytes()).hexdigest()
+          assert value["fabric_bindings_sha256"] == expected_binding_hash
+          assert explicit["physical_binding_source"] == "explicit_cli"
+          assert explicit["fabric_bindings_sha256"] is None
+          assert explicit["domain_release_hash"] == value["domain_release_hash"]
           assert value["live_prerequisites_configured"] is False
           assert value["live_prerequisite_blockers"] == [
               "control_plane_external_evidence_incomplete",
               "warehouse_real_fault_controller_not_configured",
           ]
+          assert Path("build/certification-inputs/fabric-bindings.json").read_bytes() == Path("build/fabric-bindings.json").read_bytes()
+          assert not Path("build/certification-inputs-explicit/fabric-bindings.json").exists()
           assert Path("build/certification-inputs/release-manifest.json").is_file()
           assert Path("build/certification-inputs/runner-config.json").is_file()
           assert Path("build/certification-inputs/project/config/datasets/cert.full_replace.json").is_file()
