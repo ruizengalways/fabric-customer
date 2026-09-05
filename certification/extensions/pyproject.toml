@@ -25,7 +25,7 @@ dependencies = [
 "cert.warehouse-fault" = "fabric_customer_certification_extensions:warehouse_fault_injector"
 
 [project.entry-points."fabric_data_framework.business_path_observers"]
-"cert.business-path-observer" = "fabric_customer_certification_extensions:observe_business_path"
+"cert.business-path-observer" = "fabric_customer_certification_extensions.business_observer:observe_business_path"
 
 [project.entry-points."fabric_data_framework.business_path_drivers"]
 "cert.business-path-driver" = "fabric_customer_certification_extensions.business_driver:drive_business_path"
