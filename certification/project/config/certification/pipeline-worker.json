@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "warehouse_database_url_env_var": "WAREHOUSE_DATABASE_URL",
+  "control_table": "dbo.cert_pipeline_control",
+  "progress_table": "dbo.cert_progress",
+  "datasets": {
+    "cert.full_replace": {
+      "strategy": "FULL_REPLACE",
+      "source_table": "dbo.cert_full_source",
+      "target_table": "dbo.cert_full_target",
+      "success_checkpoint": "full-1"
+    },
+    "cert.watermark_scd1": {
+      "strategy": "WATERMARK_SCD1",
+      "source_table": "dbo.cert_scd1_source",
+      "target_table": "dbo.cert_scd1_target",
+      "watermark_column": "modified_at",
+      "success_checkpoint": "2026-08-31T00:00:00Z"
+    },
+    "cert.watermark_scd2": {
+      "strategy": "WATERMARK_SCD2",
+      "source_table": "dbo.cert_scd2_source",
+      "target_table": "dbo.cert_scd2_current",
+      "history_table": "dbo.cert_scd2_history",
+      "watermark_column": "modified_at",
+      "success_checkpoint": "2026-08-31T00:00:00Z"
+    },
+    "cert.retry_idempotency": {
+      "strategy": "FULL_REPLACE",
+      "source_table": "dbo.cert_retry_source",
+      "target_table": "dbo.cert_retry_target",
+      "success_checkpoint": "retry-1"
+    },
+    "cert.reconciliation_fail_closed": {
+      "strategy": "FULL_REPLACE",
+      "source_table": "dbo.cert_recon_source",
+      "target_table": "dbo.cert_recon_target",
+      "success_checkpoint": "recon-1"
+    }
+  }
+}
