@@ -4,6 +4,32 @@ Reference Customer/domain repository for the Enterprise Microsoft Fabric Data En
 
 This repo owns Customer-specific WHAT: DatasetConfig, semantic capture selections, mappings, business DQ rules, execution-group choices, fixtures, non-secret deployment bindings, tests and certification inputs. Generic HOW remains in `fabric-data-framework`.
 
+## Enterprise DEV / UAT / PROD topology
+
+DEV is a smaller instance of the production architecture, not a different architecture. The Customer enterprise reference uses the same logical component roles in DEV, UAT and PROD:
+
+```text
+Fabric SQL Database = Framework operational control plane
+Lakehouse / OneLake = Bronze / Silver / Gold business data + quarantine detail
+Fabric Warehouse    = optional SQL-first Gold / dimensional serving
+```
+
+Canonical control-plane profile in all three stages:
+
+```text
+control_plane_profile = fabric_sql_database_v1
+```
+
+Do not use Lakehouse control tables in DEV and switch to SQL Database later. CI/CD promotes code, DatasetConfig, execution-group policy, DQ/reconciliation rules, Fabric item definitions and control-plane schema/migrations. Runtime rows, watermarks, credentials, business data and physical item UUIDs remain environment-local.
+
+`Bronze / Silver / Gold` describe analytical data maturity. `Lakehouse / Warehouse / SQL Database` describe workload engines. Warehouse is optional: Gold may remain in Lakehouse when SQL-first dimensional serving is not required.
+
+Canonical runbook:
+
+```text
+docs/runbooks/ENTERPRISE_ENVIRONMENT_TOPOLOGY.md
+```
+
 ## Framework lanes
 
 The **production/release dependency remains immutable**:
@@ -22,13 +48,9 @@ The historical **framework-next project-contract lane** remains pinned to:
 
 It proves `project-init` / `project-validate` compatibility for the normal Customer project and the 100-table Health fixture. It is static compatibility evidence only.
 
-The separate **0.4 certification-contract lane** now tracks Framework PR #107 / current substantive main baseline:
+The separate **0.4 certification-contract lane** tracks the current substantive Framework 0.4 executable baseline recorded in `docs/CURRENT_STATUS.md` and `.github/workflows/certification-contract.yml`.
 
-```text
-4c8ad9994f3800e901c146b919f85454d78f080e
-```
-
-That baseline adds product-level parent-Pipeline fault isolation, `FAIL_AT_END`, source-controlled execution-group policy, DQ/quarantine budgets, full quarantine payload retention and conservative recovery planning. The certification lane is still only a source/CI compatibility lane: it does not execute Fabric, create live PASS evidence, freeze a candidate, authorize release or change the v0.3.0 production dependency.
+That lane validates product-level parent-Pipeline fault isolation, `FAIL_AT_END`, source-controlled execution-group policy, DQ/quarantine budgets, full quarantine payload retention, conservative recovery planning and the enterprise Fabric SQL Database control-plane topology contract. The certification lane is still only a source/CI compatibility lane: it does not execute Fabric, create live PASS evidence, freeze a candidate, authorize release or change the v0.3.0 production dependency.
 
 ## Normal Customer runtime model
 
@@ -135,9 +157,10 @@ fabric-framework project-init <repo> --domain <domain>
 -> assign execution_group
 -> fabric-framework project-validate <repo>
 -> GitHub CI
--> approved DEV/UAT deployment
+-> approved DEV deployment using the canonical enterprise topology
 -> controlled operational validation
--> PROD promotion
+-> UAT promotion using the same logical topology
+-> PROD promotion using the same logical topology
 ```
 
 When Framework v0.4.0 eventually becomes an approved production dependency, execution-group policy belongs in the same source-controlled release identity rather than being silently edited in the Fabric UI.
@@ -172,7 +195,7 @@ control_plane_external_evidence_incomplete
 warehouse_real_fault_controller_not_configured
 ```
 
-Replace these only with reviewed real enterprise evidence and an approved real provider/session fault controller. Never manufacture synthetic PASS JSON.
+Replace these only with reviewed real enterprise evidence and an approved real provider/session fault-controller endpoint. Never manufacture synthetic PASS JSON.
 
 No selected/frozen Framework 0.4 candidate exists, no strict live evidence bundle is complete, and release is not authorized.
 
@@ -189,8 +212,9 @@ framework-next-project-contract
   -> exact historical project-contract SHA + project-validate + 100-table static proof
 
 customer-certification-contract
-  -> exact Framework PR #107 source compatibility
+  -> exact current substantive Framework source compatibility
   -> validates 0.4 execution-group policy examples
+  -> validates enterprise Fabric SQL Database topology contract
   -> builds typed certification inputs
   -> asserts real-environment blockers remain fail-closed
 ```
@@ -201,6 +225,7 @@ These lanes are deliberately separate. None of the development lanes upgrades th
 
 - `docs/CURRENT_STATUS.md` — exact current engineering/evidence checkpoint.
 - `docs/PROJECT_BLUEPRINT.md` — repository ownership and architecture.
+- `docs/runbooks/ENTERPRISE_ENVIRONMENT_TOPOLOGY.md` — canonical DEV/UAT/PROD storage and CI/CD topology.
 - `docs/runbooks/BUILD_NEW_DOMAIN_PROJECT.md` — create and validate a new domain.
 - `docs/runbooks/OPERATE_MULTI_TABLE_PIPELINES.md` — normal multi-table Pipeline operations and repair.
 - `docs/runbooks/CERTIFY_FRAMEWORK_0_4.md` — exact 0.4 certification preparation.
