@@ -2,7 +2,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CURRENT_CERTIFICATION_FRAMEWORK_SHA = "cb9f9be77a98a0a5aa8c5f85e0fa3d92697c60f0"
+CURRENT_CERTIFICATION_FRAMEWORK_SHA = "4c8ad9994f3800e901c146b919f85454d78f080e"
 CURRENT_CUSTOMER_DEPLOYER_SHA = "88d7c3b7b473ad84b5d96aa472293ae24c055c88"
 HISTORICAL_FIRST_FABRIC_SHA = "303683729c4915d78200d463a6def01c8de9eae6"
 HISTORICAL_FIRST_FABRIC_WHEEL_SHA = (
@@ -44,8 +44,10 @@ def test_certification_slice_is_separate_from_released_customer_runtime_pin():
 def test_certification_contract_tracks_current_framework_substantive_baseline_only():
     workflow = (ROOT / ".github/workflows/certification-contract.yml").read_text()
     assert f"CERTIFICATION_FRAMEWORK_SHA: {CURRENT_CERTIFICATION_FRAMEWORK_SHA}" in workflow
-    assert "one-call runtime/first-time Control Plane bootstrap" in workflow
-    assert "Customer production remains pinned" in workflow
+    assert "one-call runtime/Control Plane bootstrap" in workflow
+    assert "fail-at-end parent" in workflow
+    assert "execution-group policy" in workflow
+    assert "Customer production remains" in workflow
     assert "fabric-data-framework==0.3.0" in (ROOT / "pyproject.toml").read_text()
 
 
@@ -93,14 +95,15 @@ def test_current_status_is_recoverable_without_chat_history():
     for token in (
         "New-conversation recovery checkpoint",
         CURRENT_CERTIFICATION_FRAMEWORK_SHA,
-        "33961827610",
-        "13c9c7696f9c657243af1133731bf58600cffb3a78f77bede606a1b00a6c2c79",
+        "33968014547",
+        "06d4a9ca948693c87a658a34e8c4fccb42439a7f9f67c44985ac726dedb4e04d",
+        "9970044954",
         CURRENT_CUSTOMER_DEPLOYER_SHA,
         "33963661173",
         "33963661167",
         "33963703737",
         "33963703747",
-        "MERGED + MAIN CI PROVEN",
+        "merged substantive certification/deployment tooling baseline",
         "deploy_fabric_items.py",
         "certification_result = NOT_RUN",
         "fabric-data-framework==0.3.0",
@@ -109,6 +112,7 @@ def test_current_status_is_recoverable_without_chat_history():
         "control_plane_external_evidence_incomplete",
         "warehouse_real_fault_controller_not_configured",
         "DEPLOY_CERTIFICATION_FABRIC_ITEMS.md",
+        "OPERATE_MULTI_TABLE_PIPELINES.md",
     ):
         assert token in status
 
@@ -117,9 +121,9 @@ def test_current_status_keeps_actual_fabric_deployment_unclaimed():
     status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
     assert "repository_owned_certification_notebook_deployed = false / not yet evidenced" in status
     assert "repository_owned_certification_pipeline_deployed = false / not yet evidenced" in status
-    assert "current_pr105_real_fabric_certification_executed = false" in status
-    assert "acquire an organization-approved Fabric API access token" in status
-    assert "run deploy_fabric_items.py once" in status
+    assert "current_pr107_real_fabric_certification_executed = false" in status
+    assert "organization-approved Fabric API access token" in status
+    assert "run deploy_fabric_items.py once" in status.lower()
 
 
 def test_historical_first_company_fabric_evidence_remains_exact_and_old_byte_only():
