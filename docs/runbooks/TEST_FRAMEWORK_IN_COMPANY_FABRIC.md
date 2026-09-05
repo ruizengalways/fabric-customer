@@ -2,7 +2,7 @@
 
 Status: unified real-Fabric certification is the default path. The original 2026-09-03 bounded test remains historical evidence for its exact old wheel only.
 
-This is the Customer-side operator entrypoint for testing an exact Framework candidate in company Fabric. New candidates should not require an engineer to copy many Notebook cells, build a random Pipeline by hand, or manually fill PASS/FAIL dropdowns.
+This is the Customer-side operator entrypoint for testing an exact Framework candidate in company Fabric. New candidates should not require an engineer to copy many Notebook cells, build a random Pipeline by hand, manually fill PASS/FAIL dropdowns, or manually create the repository-owned certification Notebook/Pipeline when the approved Fabric API path is available.
 
 Canonical companion runbooks:
 
@@ -23,10 +23,11 @@ If Framework source changes after a real-Fabric run, the old PASS values remain 
 
 ## 2. Do not improvise the certification Pipeline
 
-The Customer repo now owns a deployable reusable reference implementation:
+The Customer repo owns a deployable reusable reference implementation:
 
 ```text
 certification/fabric_items/
+  deploy_fabric_items.py
   render_fabric_items.py
   notebook/certification-pipeline-worker.ipynb
   pipeline/pipeline-content.template.json
@@ -36,11 +37,28 @@ certification/project/config/certification/pipeline-worker.json
 certification/extensions/src/fabric_customer_certification_extensions/pipeline_worker.py
 ```
 
-Before full Pipeline/business-path certification, deploy these items using:
+Before full Pipeline/business-path certification, deploy the Notebook/Pipeline using:
 
 ```text
 docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md
 ```
+
+Preferred DEV path, when your organization permits the Fabric item APIs:
+
+```bash
+export FABRIC_ACCESS_TOKEN='<approved runtime token>'
+python certification/fabric_items/deploy_fabric_items.py \
+  --apply \
+  --environment DEV \
+  --workspace-id <CERTIFICATION_WORKSPACE_UUID> \
+  --key-vault-url https://<approved-vault>.vault.azure.net/ \
+  --control-plane-secret-name <CONTROL_PLANE_URL_SECRET_NAME> \
+  --warehouse-secret-name <WAREHOUSE_URL_SECRET_NAME>
+```
+
+Do not put the token in a CLI argument, Notebook, Git, retained certification evidence or chat. The deployer creates or updates the exact display-name items, waits for Fabric long-running operations, and records the real Notebook/Pipeline UUIDs in a non-secret `deployment-result.json`. The result deliberately says `certification_result=NOT_RUN`; successful item deployment is not a certification PASS.
+
+If corporate policy requires another deployment mechanism, use the runbook's render-only/manual fallback instead of inventing an alternate Pipeline definition.
 
 The reusable Pipeline forwards exactly seven Framework-owned dynamic parameters:
 
@@ -117,9 +135,17 @@ With no `customer-inputs/`, overall `PARTIAL` can be correct when every bounded 
 
 ## 5. Exact Customer input bundle
 
-Full environment stages require the exact Customer candidate-input artifact produced for the same Framework candidate and exact Customer main SHA.
+Full environment stages require the exact Customer candidate-input artifact produced for the same Framework candidate and exact Customer source SHA intended for the run.
 
-Extract it under:
+When the automated deployment path was used, take the real Pipeline item UUID from:
+
+```text
+build/fabric-items/deployment-result.json
+```
+
+The item-read/Copy/Spark UUIDs remain separate verified physical bindings; the Notebook/Pipeline deployer does not invent them.
+
+Extract the exact Customer bundle under:
 
 ```text
 /lakehouse/default/Files/framework_cert/customer-inputs/
@@ -185,7 +211,7 @@ WAREHOUSE_DATABASE_URL
 
 There is no separate JSON-wrapped business-path database-secret channel to configure.
 
-Fabric REST authentication may use the declared token runtime value or the current NotebookUtils Fabric/Power BI token when available.
+Fabric REST authentication during certification may use the declared token runtime value or the current NotebookUtils Fabric/Power BI token when available. The local deployment token is a separate short-lived setup credential; do not treat its existence as retained certification evidence.
 
 ## 7. Full ordinary live certification
 
@@ -411,24 +437,26 @@ Always re-read current GitHub `main`, not chat memory:
 1. fabric-customer/docs/CURRENT_STATUS.md
 2. fabric-customer/docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
 3. fabric-customer/docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md
-4. fabric-customer/docs/runbooks/CONTROL_PLANE_EXTERNAL_EVIDENCE_REVIEW.md
-5. fabric-data-framework/docs/machine/STATE.md
-6. fabric-data-framework/docs/machine/UNIFIED_CERTIFICATION.md
-7. fabric-data-framework/docs/human/ONE_CALL_CERTIFICATION_RUNTIME.md
-8. fabric-data-framework/docs/human/FABRIC_PIPELINE_CHILD_CONTRACT.md
+4. fabric-customer/certification/fabric_items/deploy_fabric_items.py
+5. fabric-customer/docs/runbooks/CONTROL_PLANE_EXTERNAL_EVIDENCE_REVIEW.md
+6. fabric-data-framework/docs/machine/STATE.md
+7. fabric-data-framework/docs/machine/UNIFIED_CERTIFICATION.md
+8. fabric-data-framework/docs/human/ONE_CALL_CERTIFICATION_RUNTIME.md
+9. fabric-data-framework/docs/human/FABRIC_PIPELINE_CHILD_CONTRACT.md
 ```
 
 Then verify:
 
 ```text
-current Framework substantive main SHA / independent main CI
+current Framework substantive executable source SHA / independent main CI
 current exact Framework wheel SHA256
-current Customer main SHA / independent CI
+current Customer substantive certification/deployment source SHA / independent CI
 candidate_status = not_frozen unless explicit governance changed it
 release_allowed = false unless explicit release governance changed it
 Customer production pin
 control-plane external-evidence blockers
 Warehouse fault-controller blocker
+actual company-Fabric deployment state
 ```
 
-If Framework source changed after the last real-Fabric run, obtain a new exact successful-main artifact before continuing testing.
+If Framework executable source changed after the last real-Fabric run, obtain a new exact successful-main artifact before continuing testing.

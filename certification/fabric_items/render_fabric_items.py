@@ -125,7 +125,6 @@ def render_pipeline_create_payload(
     encoded = _b64((json.dumps(content, indent=2) + "\n").encode("utf-8"))
     return {
         "displayName": display_name,
-        "type": "DataPipeline",
         "definition": {
             "parts": [
                 {
