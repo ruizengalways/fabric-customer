@@ -2,7 +2,12 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CURRENT_CERTIFICATION_FRAMEWORK_SHA = "4c8ad9994f3800e901c146b919f85454d78f080e"
+CURRENT_CERTIFICATION_FRAMEWORK_SHA = "3bd3375b796531e5ca6c7e144e7f50e154cec29f"
+CURRENT_CERTIFICATION_FRAMEWORK_MAIN_CI = "33997925998"
+CURRENT_CERTIFICATION_FRAMEWORK_WHEEL_SHA = (
+    "fe9adb12d9804dd146957dfc84925b18330edd0c189e5f713867e8e7e9478178"
+)
+CURRENT_CERTIFICATION_FRAMEWORK_ARTIFACT_ID = "9978610894"
 CURRENT_CUSTOMER_DEPLOYER_SHA = "88d7c3b7b473ad84b5d96aa472293ae24c055c88"
 CURRENT_CUSTOMER_OPERATIONS_SHA = "1d70fe26baf3ceef1be7c0b0cd359f330316e0ee"
 CURRENT_CUSTOMER_MAIN_CI = "33969382068"
@@ -50,6 +55,9 @@ def test_certification_contract_tracks_current_framework_substantive_baseline_on
     assert "one-call runtime/Control Plane bootstrap" in workflow
     assert "fail-at-end parent" in workflow
     assert "execution-group policy" in workflow
+    assert "canonical enterprise Fabric SQL Database control-plane topology" in workflow
+    assert "get_enterprise_fabric_control_plane_profile" in workflow
+    assert "assert_enterprise_fabric_control_plane_profile" in workflow
     assert "Customer production remains" in workflow
     assert "fabric-data-framework==0.3.0" in (ROOT / "pyproject.toml").read_text()
 
@@ -98,9 +106,9 @@ def test_current_status_is_recoverable_without_chat_history():
     for token in (
         "New-conversation recovery checkpoint",
         CURRENT_CERTIFICATION_FRAMEWORK_SHA,
-        "33968014547",
-        "06d4a9ca948693c87a658a34e8c4fccb42439a7f9f67c44985ac726dedb4e04d",
-        "9970044954",
+        CURRENT_CERTIFICATION_FRAMEWORK_MAIN_CI,
+        CURRENT_CERTIFICATION_FRAMEWORK_WHEEL_SHA,
+        CURRENT_CERTIFICATION_FRAMEWORK_ARTIFACT_ID,
         CURRENT_CUSTOMER_DEPLOYER_SHA,
         "33963661173",
         "33963661167",
@@ -116,6 +124,10 @@ def test_current_status_is_recoverable_without_chat_history():
         "warehouse_real_fault_controller_not_configured",
         "DEPLOY_CERTIFICATION_FABRIC_ITEMS.md",
         "OPERATE_MULTI_TABLE_PIPELINES.md",
+        "ENTERPRISE_ENVIRONMENT_TOPOLOGY.md",
+        "fabric_sql_database_v1",
+        "Fabric SQL Database",
+        "Warehouse is optional",
     ):
         assert token in status
 
@@ -142,7 +154,7 @@ def test_current_status_keeps_actual_fabric_deployment_unclaimed():
     status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
     assert "repository_owned_certification_notebook_deployed = false / not yet evidenced" in status
     assert "repository_owned_certification_pipeline_deployed = false / not yet evidenced" in status
-    assert "current_pr107_real_fabric_certification_executed = false" in status
+    assert "current_pr109_real_fabric_certification_executed = false" in status
     assert "organization-approved Fabric API access token" in status
     assert "run deploy_fabric_items.py once" in status.lower()
 
