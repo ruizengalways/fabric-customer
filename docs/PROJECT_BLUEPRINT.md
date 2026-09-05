@@ -115,7 +115,7 @@ The checked-in Health fixture models one domain repo:
 50  FULL      -> REPLACE
 20  WATERMARK -> SCD2
 20  WATERMARK -> SCD1
-10  CDC       -> UPSERT
+10  CDC       -> UPSERT using Debezium/Kafka
 ```
 
 Do not split these into four repositories merely by capture/apply mechanism. Repo boundaries follow ownership, security/compliance and independent release lifecycle. Operational grouping belongs in `orchestration.execution_group`.
