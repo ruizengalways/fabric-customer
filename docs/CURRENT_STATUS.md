@@ -15,6 +15,7 @@ DEV/UAT/PROD use the same logical enterprise topology
 Fabric SQL Database is the canonical Framework operational Control Plane
 Lakehouse/OneLake owns Bronze/Silver/Gold business data and quarantine detail
 Fabric Warehouse is optional SQL-first Gold/dimensional serving
+Customer enterprise topology/reference is merged + independent main-CI proven
 normal multi-table Pipeline operations/recovery is a first-class product concern
 unified real-Fabric certification remains the default certification path
 reusable certification Pipeline/worker and DEV/UAT item deployer are merged + main-CI proven
@@ -81,6 +82,31 @@ Canonical Customer runbook:
 docs/runbooks/ENTERPRISE_ENVIRONMENT_TOPOLOGY.md
 ```
 
+## Customer enterprise-topology baseline — PR #27
+
+Customer PR #27 is **MERGED + MAIN CI PROVEN**:
+
+```text
+PR                                  #27
+merge/main SHA                      fa495fce622de8a5344bf74ecc52885fe85596f4
+PR customer-ci                      33998332579 SUCCESS
+PR customer-certification-contract  33998332576 SUCCESS
+independent main customer-ci        33998361497 SUCCESS
+independent main certification      33998361592 SUCCESS
+```
+
+PR #27 makes the same enterprise architecture canonical in Customer source and CI:
+
+```text
+Fabric SQL Database = operational Framework Control Plane
+Lakehouse/OneLake   = medallion business data + quarantine detail
+Warehouse           = optional SQL-first Gold/dimensional serving
+```
+
+It also moves `customer-certification-contract` to exact Framework PR #109 SHA `3bd3375b796531e5ca6c7e144e7f50e154cec29f` and directly validates the Framework enterprise profile contract. Production dependency remains `fabric-data-framework==0.3.0`.
+
+Documentation-only checkpoints after PR #27 do not become a new substantive Customer runtime baseline merely because their Git SHA changes.
+
 ## Customer project and 100-table product baseline
 
 The normal reusable Customer-project contract remains:
@@ -144,7 +170,7 @@ real-Fabric result  NOT YET
 
 PR #109 changes executable bytes and makes the enterprise Fabric topology an explicit fail-closed Framework contract: `fabric_sql_database_v1` is canonical for Fabric DEV/UAT/PROD. PR #107 remains the product Pipeline operations milestone (FAIL_AT_END, dataset fault isolation, dependency-aware BLOCKED, aggregate audit, ExecutionGroupPolicy, DQ/quarantine budgets/detail and conservative recovery), but PR #107 is no longer the current executable identity.
 
-Framework PR #110 is a docs/tests recovery checkpoint after PR #109; docs-only SHA changes do not replace the PR #109 exact executable wheel above.
+Framework PR #110 is a docs/tests recovery checkpoint after PR #109; its main CI `33998186831` succeeded. Docs-only SHA changes do not replace the PR #109 exact executable wheel above.
 
 ## Customer product Pipeline operations baseline — PR #25
 
@@ -178,19 +204,6 @@ These examples are forward-looking Framework 0.4 contracts only. They are **not*
 ```text
 fabric-data-framework==0.3.0
 ```
-
-## Customer enterprise-topology alignment — PR #27 in progress
-
-The current Customer source change is PR #27. It updates README/blueprint/topology runbook, docs validation and `customer-certification-contract` to exact Framework PR #109.
-
-Current evidence while the PR is open:
-
-```text
-customer-certification-contract 33998196107 SUCCESS
-customer-ci                     first run failed only on stale Customer docs/test tokens; repair in progress
-```
-
-Do not describe PR #27 as merged until GitHub reports merge + independent main CI. After merge, `docs/CURRENT_STATUS.md` must be checkpointed again with the exact Customer merge SHA and main workflow IDs.
 
 ## Customer certification/deployment tooling baseline
 
@@ -307,7 +320,7 @@ Never fabricate placeholders to clear them. A dedicated DEV Warehouse is not by 
 Use the exact current PR #109 Framework artifact unless executable source changes again:
 
 ```text
-1. finish/merge Customer PR #27 and record independent main CI
+1. use Customer PR #27 substantive topology baseline / current Customer main
 2. provision/use the dedicated DEV Fabric SQL Database as canonical Framework Control Plane
 3. obtain organization-approved Fabric API token for isolated DEV certification workspace
 4. run deploy_fabric_items.py once and retain non-secret Notebook/Pipeline UUID result
