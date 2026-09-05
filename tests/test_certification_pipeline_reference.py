@@ -1,6 +1,8 @@
+import base64
 import importlib.util
 import json
 from pathlib import Path
+import sys
 
 import pytest
 
@@ -35,14 +37,48 @@ EXACT_DYNAMIC_PARAMETERS = {
     "execution_plan_hash",
 }
 
+WORKSPACE_ID = "00000000-0000-0000-0000-000000000001"
+NOTEBOOK_ID = "00000000-0000-0000-0000-000000000002"
+PIPELINE_ID = "00000000-0000-0000-0000-000000000003"
+OPERATION_ID = "00000000-0000-0000-0000-000000000004"
 
-def _renderer_module():
-    path = FABRIC_ITEMS / "render_fabric_items.py"
-    spec = importlib.util.spec_from_file_location("certification_fabric_renderer", path)
+
+def _load_module(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    sys.modules[name] = module
+    sys.path.insert(0, str(FABRIC_ITEMS))
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(str(FABRIC_ITEMS))
     return module
+
+
+def _renderer_module():
+    return _load_module(
+        "certification_fabric_renderer",
+        FABRIC_ITEMS / "render_fabric_items.py",
+    )
+
+
+def _deployer_module():
+    return _load_module(
+        "certification_fabric_deployer",
+        FABRIC_ITEMS / "deploy_fabric_items.py",
+    )
+
+
+def _decode_definition(payload: dict[str, object]) -> dict[str, object]:
+    definition = payload["definition"]
+    assert isinstance(definition, dict)
+    parts = definition["parts"]
+    assert isinstance(parts, list) and len(parts) == 1
+    part = parts[0]
+    assert isinstance(part, dict)
+    raw = base64.b64decode(part["payload"])
+    return json.loads(raw)
 
 
 def test_pipeline_template_forwards_exact_framework_parameter_contract():
@@ -153,27 +189,258 @@ def test_business_path_extensions_share_runner_declared_warehouse_runtime():
 def test_renderer_only_accepts_safe_non_secret_deployment_bindings(tmp_path):
     module = _renderer_module()
     content = module.render_pipeline_content(
-        workspace_id="00000000-0000-0000-0000-000000000001",
-        notebook_id="00000000-0000-0000-0000-000000000002",
+        workspace_id=WORKSPACE_ID,
+        notebook_id=NOTEBOOK_ID,
         key_vault_url="https://certification.vault.azure.net/",
         control_plane_secret_name="cert-control-plane-url",
         warehouse_secret_name="cert-warehouse-url",
     )
     rendered = json.dumps(content)
-    assert "00000000-0000-0000-0000-000000000001" in rendered
-    assert "00000000-0000-0000-0000-000000000002" in rendered
+    assert WORKSPACE_ID in rendered
+    assert NOTEBOOK_ID in rendered
     assert "certification.vault.azure.net" in rendered
     assert "@pipeline().parameters.dataset_id" in rendered
     assert "__" not in rendered
 
+    create_payload = module.render_pipeline_create_payload(
+        display_name="framework-certification-child",
+        workspace_id=WORKSPACE_ID,
+        notebook_id=NOTEBOOK_ID,
+        key_vault_url="https://certification.vault.azure.net/",
+        control_plane_secret_name="cert-control-plane-url",
+        warehouse_secret_name="cert-warehouse-url",
+    )
+    assert set(create_payload) == {"displayName", "definition"}
+    assert "type" not in create_payload
+
     with pytest.raises(ValueError, match="credential-free HTTPS URL"):
         module.render_pipeline_content(
-            workspace_id="00000000-0000-0000-0000-000000000001",
-            notebook_id="00000000-0000-0000-0000-000000000002",
+            workspace_id=WORKSPACE_ID,
+            notebook_id=NOTEBOOK_ID,
             key_vault_url="https://user:password@certification.vault.azure.net/",
             control_plane_secret_name="cert-control-plane-url",
             warehouse_secret_name="cert-warehouse-url",
         )
+
+
+def test_deployer_create_path_binds_real_notebook_id_into_pipeline_and_retains_no_secrets():
+    module = _deployer_module()
+
+    class FakeClient:
+        def __init__(self):
+            self.created_notebook_payload = None
+            self.created_pipeline_payload = None
+            self.lookups = []
+
+        def find_exact_item(self, workspace_id, *, item_type, display_name):
+            self.lookups.append((workspace_id, item_type, display_name))
+            return None
+
+        def create_notebook(self, workspace_id, payload):
+            self.created_notebook_payload = payload
+            return {
+                "id": NOTEBOOK_ID,
+                "type": "Notebook",
+                "displayName": payload["displayName"],
+            }
+
+        def create_pipeline(self, workspace_id, payload):
+            self.created_pipeline_payload = payload
+            return {
+                "id": PIPELINE_ID,
+                "type": "DataPipeline",
+                "displayName": payload["displayName"],
+            }
+
+        def update_notebook_definition(self, *args, **kwargs):
+            raise AssertionError("create path must not update Notebook")
+
+        def update_pipeline_definition(self, *args, **kwargs):
+            raise AssertionError("create path must not update Pipeline")
+
+    client = FakeClient()
+    result = module.deploy_certification_items(
+        client,
+        environment="DEV",
+        workspace_id=WORKSPACE_ID,
+        key_vault_url="https://certification.vault.azure.net/",
+        control_plane_secret_name="cert-control-plane-url",
+        warehouse_secret_name="cert-warehouse-url",
+    )
+
+    assert result["notebook"]["id"] == NOTEBOOK_ID
+    assert result["notebook"]["action"] == "created"
+    assert result["pipeline"]["id"] == PIPELINE_ID
+    assert result["pipeline"]["action"] == "created"
+    assert result["contains_secret_values"] is False
+    assert result["certification_result"] == "NOT_RUN"
+    assert "key_vault_url" not in result
+    assert "control_plane_secret_name" not in result
+    assert "warehouse_secret_name" not in result
+
+    assert client.created_pipeline_payload is not None
+    content = _decode_definition(client.created_pipeline_payload)
+    rendered = json.dumps(content)
+    assert NOTEBOOK_ID in rendered
+    assert WORKSPACE_ID in rendered
+    assert "cert-control-plane-url" in rendered
+    assert "cert-warehouse-url" in rendered
+
+
+def test_deployer_update_path_updates_definitions_without_creating_items():
+    module = _deployer_module()
+
+    class FakeClient:
+        def __init__(self):
+            self.notebook_updates = []
+            self.pipeline_updates = []
+
+        def find_exact_item(self, workspace_id, *, item_type, display_name):
+            if item_type == "Notebook":
+                return {
+                    "id": NOTEBOOK_ID,
+                    "type": "Notebook",
+                    "displayName": display_name,
+                }
+            return {
+                "id": PIPELINE_ID,
+                "type": "DataPipeline",
+                "displayName": display_name,
+            }
+
+        def create_notebook(self, *args, **kwargs):
+            raise AssertionError("update path must not create Notebook")
+
+        def create_pipeline(self, *args, **kwargs):
+            raise AssertionError("update path must not create Pipeline")
+
+        def update_notebook_definition(self, workspace_id, notebook_id, definition):
+            self.notebook_updates.append((workspace_id, notebook_id, definition))
+
+        def update_pipeline_definition(self, workspace_id, pipeline_id, definition):
+            self.pipeline_updates.append((workspace_id, pipeline_id, definition))
+
+    client = FakeClient()
+    result = module.deploy_certification_items(
+        client,
+        environment="UAT",
+        workspace_id=WORKSPACE_ID,
+        key_vault_url="https://certification.vault.azure.net/",
+        control_plane_secret_name="cert-control-plane-url",
+        warehouse_secret_name="cert-warehouse-url",
+    )
+
+    assert result["notebook"]["action"] == "updated"
+    assert result["pipeline"]["action"] == "updated"
+    assert client.notebook_updates[0][0:2] == (WORKSPACE_ID, NOTEBOOK_ID)
+    assert client.pipeline_updates[0][0:2] == (WORKSPACE_ID, PIPELINE_ID)
+    rendered_pipeline = json.dumps(client.pipeline_updates[0][2])
+    assert NOTEBOOK_ID in base64.b64decode(
+        client.pipeline_updates[0][2]["parts"][0]["payload"]
+    ).decode("utf-8")
+    assert "cert-control-plane-url" not in json.dumps(result)
+    assert "cert-warehouse-url" not in json.dumps(result)
+
+
+def test_deployer_rejects_prod_and_duplicate_exact_display_names(monkeypatch):
+    module = _deployer_module()
+
+    with pytest.raises(module.FabricDeploymentError, match="restricted to DEV/UAT"):
+        module.deploy_certification_items(
+            object(),
+            environment="PROD",
+            workspace_id=WORKSPACE_ID,
+            key_vault_url="https://certification.vault.azure.net/",
+            control_plane_secret_name="cert-control-plane-url",
+            warehouse_secret_name="cert-warehouse-url",
+        )
+
+    client = module.FabricApiClient("test-token")
+    monkeypatch.setattr(
+        client,
+        "list_items",
+        lambda workspace_id, item_type: [
+            {"id": NOTEBOOK_ID, "type": item_type, "displayName": "duplicate"},
+            {"id": PIPELINE_ID, "type": item_type, "displayName": "duplicate"},
+        ],
+    )
+    with pytest.raises(module.FabricDeploymentError, match="Multiple Notebook items"):
+        client.find_exact_item(
+            WORKSPACE_ID,
+            item_type="Notebook",
+            display_name="duplicate",
+        )
+
+
+def test_deployer_polls_fabric_lro_and_fetches_create_result(monkeypatch):
+    module = _deployer_module()
+    client = module.FabricApiClient(
+        "test-token",
+        sleep_fn=lambda seconds: None,
+        monotonic_fn=lambda: 0.0,
+    )
+    responses = iter(
+        [
+            module.HttpResult(200, {"Retry-After": "1"}, {"status": "Running"}),
+            module.HttpResult(200, {}, {"status": "Succeeded"}),
+            module.HttpResult(200, {}, {"id": NOTEBOOK_ID, "type": "Notebook"}),
+        ]
+    )
+    calls = []
+
+    def fake_request(method, path_or_url, payload=None):
+        calls.append((method, path_or_url, payload))
+        return next(responses)
+
+    monkeypatch.setattr(client, "_request", fake_request)
+    result = client._wait_operation(
+        {"x-ms-operation-id": OPERATION_ID, "Retry-After": "1"},
+        expect_result=True,
+    )
+    assert result["id"] == NOTEBOOK_ID
+    assert calls == [
+        ("GET", f"operations/{OPERATION_ID}", None),
+        ("GET", f"operations/{OPERATION_ID}", None),
+        ("GET", f"operations/{OPERATION_ID}/result", None),
+    ]
+
+
+def test_deployer_list_items_follows_same_host_continuation(monkeypatch):
+    module = _deployer_module()
+    client = module.FabricApiClient("test-token")
+    continuation = (
+        "https://api.fabric.microsoft.com/v1/workspaces/"
+        f"{WORKSPACE_ID}/items?type=Notebook&continuationToken=next"
+    )
+    responses = iter(
+        [
+            module.HttpResult(
+                200,
+                {},
+                {
+                    "value": [
+                        {"id": NOTEBOOK_ID, "type": "Notebook", "displayName": "one"}
+                    ],
+                    "continuationUri": continuation,
+                },
+            ),
+            module.HttpResult(
+                200,
+                {},
+                {
+                    "value": [
+                        {"id": PIPELINE_ID, "type": "Notebook", "displayName": "two"}
+                    ]
+                },
+            ),
+        ]
+    )
+    monkeypatch.setattr(client, "_request", lambda method, url, payload=None: next(responses))
+    items = client.list_items(WORKSPACE_ID, "Notebook")
+    assert [item["displayName"] for item in items] == ["one", "two"]
+
+    with pytest.raises(module.FabricDeploymentError, match="approved API host"):
+        client._absolute_url("https://example.com/v1/operations/anything")
 
 
 def test_dedicated_warehouse_ddl_contains_required_certification_tables():
@@ -203,6 +470,12 @@ def test_deployment_runbook_is_recoverable_and_does_not_invent_pipeline_semantic
     text = DEPLOY_RUNBOOK.read_text()
     for name in EXACT_DYNAMIC_PARAMETERS:
         assert name in text
+    assert "deploy_fabric_items.py" in text
+    assert "--apply" in text
+    assert "FABRIC_ACCESS_TOKEN" in text
+    assert "deployment-result.json" in text
+    assert "certification_result" in text
+    assert "NOT_RUN" in text
     assert "render_fabric_items.py notebook" in text
     assert "render_fabric_items.py pipeline" in text
     assert "warehouse-certification-fixtures.sql" in text
