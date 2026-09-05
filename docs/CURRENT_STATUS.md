@@ -1,6 +1,6 @@
 # Current Status — fabric-customer
 
-Last updated: 2026-09-05
+Last updated: 2026-09-06
 
 ## New-conversation recovery checkpoint
 
@@ -11,11 +11,15 @@ Current direction:
 ```text
 Framework 0.4 source is development/unreleased
 Customer production runtime remains on released Framework v0.3.0
+DEV/UAT/PROD use the same logical enterprise topology
+Fabric SQL Database is the canonical Framework operational Control Plane
+Lakehouse/OneLake owns Bronze/Silver/Gold business data and quarantine detail
+Fabric Warehouse is optional SQL-first Gold/dimensional serving
 normal multi-table Pipeline operations/recovery is a first-class product concern
 unified real-Fabric certification remains the default certification path
 reusable certification Pipeline/worker and DEV/UAT item deployer are merged + main-CI proven
 actual company-Fabric certification items from that deployer are not yet evidenced as deployed
-current Framework PR #107 wheel has not yet been executed in real Fabric
+current Framework PR #109 wheel has not yet been executed in real Fabric
 strict release evidence is incomplete
 no exact Framework candidate is frozen
 no 0.4 release is authorized
@@ -25,13 +29,16 @@ Read in this order after a context reset:
 
 ```text
 1. fabric-customer/docs/CURRENT_STATUS.md
-2. fabric-customer/docs/runbooks/OPERATE_MULTI_TABLE_PIPELINES.md
-3. fabric-customer/examples/pipeline_development/README.md
-4. fabric-customer/docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
-5. fabric-customer/docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md
-6. fabric-data-framework/docs/machine/STATE.md
-7. fabric-data-framework/docs/human/PIPELINE_OPERATIONS_AND_RECOVERY.md
-8. fabric-data-framework/docs/machine/UNIFIED_CERTIFICATION.md
+2. fabric-customer/docs/runbooks/ENTERPRISE_ENVIRONMENT_TOPOLOGY.md
+3. fabric-customer/docs/runbooks/OPERATE_MULTI_TABLE_PIPELINES.md
+4. fabric-customer/examples/pipeline_development/README.md
+5. fabric-customer/docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
+6. fabric-customer/docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md
+7. fabric-data-framework/docs/machine/STATE.md
+8. fabric-data-framework/docs/machine/ENTERPRISE_TOPOLOGY.md
+9. fabric-data-framework/docs/human/ENTERPRISE_FABRIC_ARCHITECTURE.md
+10. fabric-data-framework/docs/human/PIPELINE_OPERATIONS_AND_RECOVERY.md
+11. fabric-data-framework/docs/machine/UNIFIED_CERTIFICATION.md
 ```
 
 ## Hard governance locks
@@ -49,6 +56,31 @@ known_strict_required_blockers: 15
 
 Do not change the Customer production dependency until immutable Framework `v0.4.0` exists and release governance explicitly permits migration. A bounded/manual/unified certification result cannot silently freeze/select a candidate or publish a release; `release_authorized=false` remains structural for unified certification.
 
+## Enterprise DEV / UAT / PROD topology
+
+DEV is the production architecture at smaller scale. Do not use Lakehouse control tables in DEV and switch to SQL Database in UAT/PROD.
+
+Canonical topology:
+
+```text
+DEV/UAT/PROD Control Plane = Fabric SQL Database
+control_plane_profile       = fabric_sql_database_v1
+Bronze/Silver/Gold           = Lakehouse / OneLake data plane
+Gold SQL/dimensional serving = optional Fabric Warehouse
+```
+
+`Bronze / Silver / Gold` are analytical data-maturity layers. `Lakehouse / Warehouse / SQL Database` are workload engines, so they are not competing layer names.
+
+CI/CD promotes code, DatasetConfig, execution-group policy, DQ/reconciliation rules, Notebook/Pipeline definitions, SQL control-plane schema/migrations and non-secret logical templates. It does **not** promote DEV runtime `pipeline_run` / `dataset_run` rows, watermarks/checkpoints, retry/reprocess history, operation-journal state, credentials/tokens, physical item UUIDs or business data into UAT/PROD.
+
+Delta optimistic concurrency may reject overlapping concurrent Lakehouse writes/merges. That is valid Delta correctness behavior, but frequent small concurrent Framework state transitions are an operational/OLTP workload, so the enterprise reference uses Fabric SQL Database from DEV onward.
+
+Canonical Customer runbook:
+
+```text
+docs/runbooks/ENTERPRISE_ENVIRONMENT_TOPOLOGY.md
+```
+
 ## Customer project and 100-table product baseline
 
 The normal reusable Customer-project contract remains:
@@ -59,7 +91,9 @@ fabric-framework project-init <repo> --domain <domain>
 -> assign execution_group
 -> fabric-framework project-validate <repo>
 -> GitHub CI
--> approved DEV/UAT deployment
+-> deploy same logical topology to DEV
+-> validate
+-> promote same definitions to UAT/PROD with environment-local bindings
 ```
 
 The one-repo Health reference remains:
@@ -79,15 +113,15 @@ FRAMEWORK_NEXT_SHA = 148e02e3fff7861f238296e7554815a6fd49dd0a
 
 That SHA is independent from the current 0.4 certification compatibility SHA. Do not replace one with the other merely because both are Framework development lines.
 
-## Current Framework executable identity — PR #107
+## Current Framework executable identity — PR #109
 
 Current Framework substantive executable baseline:
 
 ```text
-PR                            #107
-merge/main SHA                4c8ad9994f3800e901c146b919f85454d78f080e
-PR framework-ci               33967940246 SUCCESS
-independent main framework-ci 33968014547 SUCCESS
+PR                            #109
+merge/main SHA                3bd3375b796531e5ca6c7e144e7f50e154cec29f
+PR framework-ci               33997830902 SUCCESS
+independent main framework-ci 33997925998 SUCCESS
 Python 3.11                   SUCCESS
 Python 3.13                   SUCCESS
 build-wheel                   SUCCESS
@@ -97,24 +131,24 @@ release-readiness-contract    SUCCESS
 Exact current executable artifact:
 
 ```text
-artifact name       framework-wheel-4c8ad9994f3800e901c146b919f85454d78f080e
-artifact ID         9970044954
-artifact ZIP digest sha256:7c297a36eb3146356f2ba7a39e87e9fee3f2ea53bc9a9711cbebe9031ec00a97
+artifact name       framework-wheel-3bd3375b796531e5ca6c7e144e7f50e154cec29f
+artifact ID         9978610894
+artifact ZIP digest sha256:6e9fa87f8472ffb61cf1b7319160cc4b0b23ab6e9559731446e8ae4f2f381830
 wheel filename      fabric_data_framework-0.4.0-py3-none-any.whl
-wheel SHA256        06d4a9ca948693c87a658a34e8c4fccb42439a7f9f67c44985ac726dedb4e04d
-workflow run ID     33968014547
+wheel SHA256        fe9adb12d9804dd146957dfc84925b18330edd0c189e5f713867e8e7e9478178
+workflow run ID     33997925998
 workflow attempt    1
 selected/frozen     false
 real-Fabric result  NOT YET
 ```
 
-PR #107 changes executable bytes and adds `FAIL_AT_END`, dataset fault isolation, dependency-aware `BLOCKED`, parent aggregate error persistence, Control Plane schema v5, source-controlled `ExecutionGroupPolicy`, DQ/quarantine budgets, governed full quarantine detail and conservative recovery planning.
+PR #109 changes executable bytes and makes the enterprise Fabric topology an explicit fail-closed Framework contract: `fabric_sql_database_v1` is canonical for Fabric DEV/UAT/PROD. PR #107 remains the product Pipeline operations milestone (FAIL_AT_END, dataset fault isolation, dependency-aware BLOCKED, aggregate audit, ExecutionGroupPolicy, DQ/quarantine budgets/detail and conservative recovery), but PR #107 is no longer the current executable identity.
 
-The former PR #105 wheel is historical old bytes for future certification purposes. PR #105 remains the one-call runtime/first-time Control Plane bootstrap milestone and PR #104 remains the durable seven-parameter Pipeline-child milestone, but neither exact artifact is current.
+Framework PR #110 is a docs/tests recovery checkpoint after PR #109; docs-only SHA changes do not replace the PR #109 exact executable wheel above.
 
 ## Customer product Pipeline operations baseline — PR #25
 
-Customer PR #25 is **MERGED + MAIN CI PROVEN** and is now the normal multi-table Pipeline operations/reference baseline:
+Customer PR #25 is **MERGED + MAIN CI PROVEN** and remains the normal multi-table Pipeline operations/reference baseline:
 
 ```text
 PR                                  #25
@@ -125,7 +159,7 @@ independent main customer-ci        33969382068 SUCCESS
 independent main certification      33969382063 SUCCESS
 ```
 
-PR #25 adds:
+PR #25 owns:
 
 ```text
 examples/pipeline_development/README.md
@@ -137,13 +171,26 @@ examples/pipeline_development/framework_0_4/execution-groups/
   health_debezium.json
 ```
 
-All four execution-group examples use `FAIL_AT_END`, bounded concurrency, governed FULL quarantine detail, DQ budgets and real per-table overrides tied to the existing 100-table manifest. The 0.4 certification compatibility lane validates them against Framework PR #107 SHA `4c8ad9994f3800e901c146b919f85454d78f080e` and proves group-policy bytes alter the config bundle identity.
+All four examples use `FAIL_AT_END`, bounded concurrency, governed FULL quarantine detail, DQ budgets and per-table overrides tied to the 100-table manifest. The 0.4 certification lane now validates these examples and the enterprise topology against Framework PR #109 SHA `3bd3375b796531e5ca6c7e144e7f50e154cec29f`.
 
 These examples are forward-looking Framework 0.4 contracts only. They are **not** promoted into the production runtime while Customer remains pinned to:
 
 ```text
 fabric-data-framework==0.3.0
 ```
+
+## Customer enterprise-topology alignment — PR #27 in progress
+
+The current Customer source change is PR #27. It updates README/blueprint/topology runbook, docs validation and `customer-certification-contract` to exact Framework PR #109.
+
+Current evidence while the PR is open:
+
+```text
+customer-certification-contract 33998196107 SUCCESS
+customer-ci                     first run failed only on stale Customer docs/test tokens; repair in progress
+```
+
+Do not describe PR #27 as merged until GitHub reports merge + independent main CI. After merge, `docs/CURRENT_STATUS.md` must be checkpointed again with the exact Customer merge SHA and main workflow IDs.
 
 ## Customer certification/deployment tooling baseline
 
@@ -167,10 +214,10 @@ Merged/green deployer source does **not** prove the company workspace was mutate
 ```text
 repository_owned_certification_notebook_deployed = false / not yet evidenced
 repository_owned_certification_pipeline_deployed = false / not yet evidenced
-current_pr107_real_fabric_certification_executed = false
+current_pr109_real_fabric_certification_executed = false
 ```
 
-The immediate live step still requires an organization-approved Fabric API access token and an isolated approved DEV/UAT workspace. Run deploy_fabric_items.py once only when those prerequisites are real; retain only its non-secret result. See `DEPLOY_CERTIFICATION_FABRIC_ITEMS.md`.
+The immediate live step still requires an organization-approved Fabric API access token and an isolated approved DEV workspace. Run deploy_fabric_items.py once only when those prerequisites are real; retain only its non-secret result. See `DEPLOY_CERTIFICATION_FABRIC_ITEMS.md`.
 
 ## Normal business Pipeline recovery boundary
 
@@ -220,7 +267,7 @@ manual Admin Override           not used
 release authorized              false
 ```
 
-Do not reuse those PASS values for PR #107 bytes. The form was a result recorder; PASS came from actual checks executed in company Fabric.
+Do not reuse those PASS values for PR #109 bytes. The form was a result recorder; PASS came from actual checks executed in company Fabric.
 
 ## Control Plane and strict evidence
 
@@ -257,20 +304,22 @@ Never fabricate placeholders to clear them. A dedicated DEV Warehouse is not by 
 
 ## Next real-Fabric phase
 
-Use the exact current PR #107 Framework artifact unless executable source changes again:
+Use the exact current PR #109 Framework artifact unless executable source changes again:
 
 ```text
-1. obtain organization-approved Fabric API token for isolated DEV certification workspace
-2. run deploy_fabric_items.py once and retain non-secret Notebook/Pipeline UUID result
-3. prepare dedicated Warehouse fixture tables
-4. verify separate real item-read/Copy/Spark UUIDs
-5. build exact Customer candidate-input artifact against PR #107 wheel + exact Customer SHA
-6. upload exact Framework wheel/CANDIDATE/SHA256SUMS + customer-inputs
-7. run bounded certification first
-8. STOP on any real bounded FAIL
-9. first-time Control Plane bootstrap only for a new dedicated certification DB
-10. proceed to ordinary live stages only with approved mutations
-11. keep missing external evidence/fault controller as BLOCKED/NOT_RUN
+1. finish/merge Customer PR #27 and record independent main CI
+2. provision/use the dedicated DEV Fabric SQL Database as canonical Framework Control Plane
+3. obtain organization-approved Fabric API token for isolated DEV certification workspace
+4. run deploy_fabric_items.py once and retain non-secret Notebook/Pipeline UUID result
+5. prepare dedicated Warehouse fixture tables only when Warehouse certification is in scope/approved
+6. verify separate real item-read/Copy/Spark UUIDs
+7. build exact Customer candidate-input artifact against PR #109 wheel + exact Customer SHA
+8. upload exact Framework wheel/CANDIDATE/SHA256SUMS + customer-inputs
+9. run bounded certification first
+10. STOP on any real bounded FAIL
+11. first-time Control Plane bootstrap only for a new dedicated certification DB
+12. proceed to ordinary live stages only with approved mutations
+13. keep missing external evidence/fault controller as BLOCKED/NOT_RUN
 ```
 
 ## Strict release path remains later
