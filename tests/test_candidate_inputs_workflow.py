@@ -4,6 +4,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CURRENT_CERTIFICATION_FRAMEWORK_SHA = "4c8ad9994f3800e901c146b919f85454d78f080e"
 CURRENT_CUSTOMER_DEPLOYER_SHA = "88d7c3b7b473ad84b5d96aa472293ae24c055c88"
+CURRENT_CUSTOMER_OPERATIONS_SHA = "1d70fe26baf3ceef1be7c0b0cd359f330316e0ee"
+CURRENT_CUSTOMER_MAIN_CI = "33969382068"
+CURRENT_CUSTOMER_MAIN_CERTIFICATION_CI = "33969382063"
 HISTORICAL_FIRST_FABRIC_SHA = "303683729c4915d78200d463a6def01c8de9eae6"
 HISTORICAL_FIRST_FABRIC_WHEEL_SHA = (
     "0638c95c19ebcc43ec4ec462b7f960a164209874223517e3f74b951264b0eaf6"
@@ -113,6 +116,24 @@ def test_current_status_is_recoverable_without_chat_history():
         "warehouse_real_fault_controller_not_configured",
         "DEPLOY_CERTIFICATION_FABRIC_ITEMS.md",
         "OPERATE_MULTI_TABLE_PIPELINES.md",
+    ):
+        assert token in status
+
+
+def test_current_status_locks_merged_product_operations_baseline():
+    status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
+    for token in (
+        "Customer PR #25 is **MERGED + MAIN CI PROVEN**",
+        CURRENT_CUSTOMER_OPERATIONS_SHA,
+        "33969274525",
+        "33969274509",
+        CURRENT_CUSTOMER_MAIN_CI,
+        CURRENT_CUSTOMER_MAIN_CERTIFICATION_CI,
+        "health_full_refresh.json",
+        "health_scd2.json",
+        "health_scd1.json",
+        "health_debezium.json",
+        "FAIL_AT_END",
     ):
         assert token in status
 
