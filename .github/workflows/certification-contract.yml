@@ -9,12 +9,13 @@ permissions:
   contents: read
 
 env:
-  # Current Framework substantive source baseline after PR #107. It owns the durable
+  # Current Framework substantive source baseline after PR #109. It owns the durable
   # Fabric Pipeline child, one-call runtime/Control Plane bootstrap, fail-at-end parent
-  # aggregation, execution-group policy, DQ/quarantine budgets and conservative recovery
-  # planning. This is a source/CI compatibility lane only; Customer production remains
-  # pinned to immutable v0.3.0 until Framework v0.4.0 is released and approved.
-  CERTIFICATION_FRAMEWORK_SHA: 4c8ad9994f3800e901c146b919f85454d78f080e
+  # aggregation, execution-group policy, DQ/quarantine budgets, conservative recovery
+  # planning, and the canonical enterprise Fabric SQL Database control-plane topology.
+  # This is a source/CI compatibility lane only; Customer production remains pinned to
+  # immutable v0.3.0 until Framework v0.4.0 is released and approved.
+  CERTIFICATION_FRAMEWORK_SHA: 3bd3375b796531e5ca6c7e144e7f50e154cec29f
 
 jobs:
   certification-contract:
@@ -41,16 +42,26 @@ jobs:
           python -m pip install "setuptools>=77"
           python -m pip check
 
-      - name: Validate Framework 0.4 pipeline operations examples
+      - name: Validate Framework 0.4 pipeline operations and enterprise topology
         run: |
           python - <<'PY'
           from pathlib import Path
 
+          from fabric_data_framework.control_plane.enterprise import (
+              assert_enterprise_fabric_control_plane_profile,
+              get_enterprise_fabric_control_plane_profile,
+          )
           from fabric_data_framework.deployment.delivery import (
               config_bundle_hash,
               load_dataset_configs,
               load_execution_group_policies,
           )
+
+          profile = get_enterprise_fabric_control_plane_profile()
+          assert profile.profile_name == "fabric_sql_database_v1"
+          assert profile.production_eligible is True
+          assert profile.allowed_sqlalchemy_dialects == ("mssql",)
+          assert_enterprise_fabric_control_plane_profile("fabric_sql_database_v1")
 
           root = Path("examples/pipeline_development/framework_0_4/execution-groups")
           policies = load_execution_group_policies(root)
