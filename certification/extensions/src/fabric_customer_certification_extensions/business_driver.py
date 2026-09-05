@@ -2,23 +2,33 @@
 
 The driver may reset bounded certification tables and a pipeline-control row. It never
 observes provider success and never returns readiness PASS/FAIL.
+
+Runtime SQL selection follows the exact Customer runner contract directly:
+``WAREHOUSE_DATABASE_URL`` is supplied only at runtime by the Framework one-call
+certification scope. No second JSON-wrapped secret channel is required.
 """
 
 from __future__ import annotations
 
-from typing import Any
+import os
 
 from fabric_data_framework.evidence.business_path_driver import (
     BusinessPathDriverReceipt,
     BusinessPathDriverRequest,
 )
 
-from . import _database_url, _replace_fixture_rows, _runtime_json, _set_pipeline_control
+from . import _replace_fixture_rows, _set_pipeline_control
+
+
+def _warehouse_database_url() -> str:
+    value = os.environ.get("WAREHOUSE_DATABASE_URL", "").strip()
+    if not value:
+        raise RuntimeError("WAREHOUSE_DATABASE_URL is required for business-path driver")
+    return value
 
 
 def drive_business_path(request: BusinessPathDriverRequest) -> BusinessPathDriverReceipt:
-    runtime = _runtime_json("BUSINESS_PATH_DRIVER_RUNTIME_JSON")
-    database_url = _database_url(runtime)
+    database_url = _warehouse_database_url()
     actions = request.parameters.get("actions")
     control_table = request.parameters.get("control_table")
     if not isinstance(actions, dict):
