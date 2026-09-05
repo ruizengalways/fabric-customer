@@ -1,14 +1,14 @@
-# Runbook — Deploy the reusable certification Fabric items
+# Runbook — Deploy and bind the reusable certification Fabric items
 
 Audience: a data engineer preparing an isolated company Fabric DEV/UAT workspace for exact Framework certification.
 
-This runbook exists so a new engineer does **not** build an arbitrary Pipeline by hand. The repository owns a deterministic worker Notebook, reusable Data Pipeline template, fail-closed deployer, render-only fallback, Warehouse fixture DDL and exact Customer certification configuration.
+This runbook exists so a new engineer does **not** build an arbitrary Pipeline by hand and does **not** manually copy Fabric item UUIDs when the approved Fabric API is available. The repository owns a deterministic worker Notebook, reusable Data Pipeline template, fail-closed deployer, read-only binding resolver, render-only fallback, Warehouse fixture DDL and exact Customer certification configuration.
 
 ## 1. Safety boundary
 
 Use only an isolated or explicitly approved certification workspace and dedicated certification Warehouse.
 
-The repository deployer deliberately accepts only:
+The mutating repository deployer deliberately accepts only:
 
 ```text
 DEV
@@ -17,7 +17,7 @@ UAT
 
 It refuses `PROD`.
 
-Never run the fixture DDL, business-path reset/mutation logic, Warehouse fault drill or session termination against a shared/production Warehouse.
+Never run fixture DDL, business-path reset/mutation logic, Warehouse fault drill or session termination against a shared/production Warehouse.
 
 Do not commit or pass on a command line:
 
@@ -29,9 +29,9 @@ Key Vault secret values
 signed URLs
 ```
 
-The deployer accepts only non-secret workspace bindings plus a credential-free Key Vault URL and secret **names**. The Fabric API token is read from an environment variable and is never written to `deployment-result.json`.
+The deployer accepts only non-secret workspace bindings plus a credential-free Key Vault URL and secret **names**. The Fabric API token is read from an environment variable and is never written to `deployment-result.json` or `fabric-bindings.json`.
 
-Creating/updating Fabric items is **not** certification. A successful deployment result deliberately records:
+Creating/updating or resolving Fabric items is **not** certification. Both setup records deliberately retain:
 
 ```text
 certification_result = NOT_RUN
@@ -44,6 +44,7 @@ Canonical files:
 ```text
 certification/fabric_items/
   deploy_fabric_items.py
+  resolve_fabric_bindings.py
   render_fabric_items.py
   notebook/certification-pipeline-worker.ipynb
   pipeline/pipeline-content.template.json
@@ -51,6 +52,7 @@ certification/fabric_items/
 
 certification/project/config/certification/pipeline-worker.json
 certification/extensions/src/fabric_customer_certification_extensions/pipeline_worker.py
+certification/build_candidate_inputs.py
 ```
 
 The Pipeline is reusable across the representative business paths. It is not one Pipeline per table.
@@ -82,13 +84,23 @@ Key Vault secret name containing the certification Warehouse database URL
 approved Microsoft Fabric API access token
 ```
 
-The token must have the organization-approved permissions/role required to list and create/update Notebook/Data Pipeline items in the target workspace. Acquire it through your normal corporate identity/credential process.
+For exact binding resolution, also know the **display names**, not UUIDs, of the already-existing physical items used for:
 
-Do **not** paste the token into this repository, a Notebook cell, shell history as a CLI argument, PR text, retained evidence or chat. Put it only in the runtime environment used for the deployment command.
+```text
+read-only Fabric item smoke         + its exact Fabric item type
+Copy capture certification          CopyJob
+Spark capture certification         SparkJobDefinition
+```
+
+Example item-read type may be `Lakehouse` if that is the approved item used for the read-only smoke. Do not assume the type; use the actual item type in your environment.
+
+The token must have the organization-approved permissions/role required to read/list items and, for the deployment command, create/update Notebook/Data Pipeline items in the target workspace. Acquire it through the normal corporate identity/credential process.
+
+Do **not** paste the token into this repository, a Notebook cell, shell history as a CLI argument, PR text, retained evidence or chat. Put it only in the runtime environment used by the commands.
 
 The deployed worker Notebook must later execute in an environment where the exact Framework wheel/customer extension bundle used for certification is available according to the approved Fabric package/environment setup.
 
-## 4. Preferred path — one-command create or update
+## 4. Preferred path — one-command Notebook/Pipeline create or update
 
 Set the token in the local runtime environment. Example shell syntax:
 
@@ -162,24 +174,115 @@ The actual `action` value is `created` or `updated`.
 
 **Stop condition:** if the command exits non-zero, reports duplicate items, an invalid binding, a Fabric API error, or a failed/timed-out long-running operation, stop. Do not manually edit the result file to invent item UUIDs.
 
-After success, remove the token from the shell/runtime environment according to your organization policy.
+## 5. Preferred path — resolve all exact physical item bindings by display name
 
-## 5. What the deployer does and does not retain
+After Notebook/Pipeline deployment succeeds, keep the same short-lived approved Fabric token in the runtime environment long enough to run the **read-only** resolver:
 
-The deployment result may retain these non-secret anchors:
+```bash
+python certification/fabric_items/resolve_fabric_bindings.py \
+  --deployment-result build/fabric-items/deployment-result.json \
+  --item-read-type <ACTUAL_ITEM_TYPE> \
+  --item-read-display-name '<EXACT_READ_ITEM_DISPLAY_NAME>' \
+  --copy-job-display-name '<EXACT_COPY_JOB_DISPLAY_NAME>' \
+  --spark-job-display-name '<EXACT_SPARK_JOB_DISPLAY_NAME>'
+```
+
+Example only, when the read smoke intentionally targets a Lakehouse:
+
+```bash
+python certification/fabric_items/resolve_fabric_bindings.py \
+  --item-read-type Lakehouse \
+  --item-read-display-name 'certification-lakehouse' \
+  --copy-job-display-name 'framework-certification-copy' \
+  --spark-job-display-name 'framework-certification-spark'
+```
+
+The example display names are not defaults and are not evidence that those items exist in your workspace. Use the actual approved names.
+
+The resolver performs no Fabric mutations. It:
+
+```text
+loads deployment-result.json
+-> requires schema_version=1 / DEV|UAT / contains_secret_values=false / certification_result=NOT_RUN
+-> re-reads exact Notebook by type + display name
+-> requires its real UUID still equals the deployment record
+-> re-reads exact DataPipeline by type + display name
+-> requires its real UUID still equals the deployment record
+-> resolves item-read by exact user-supplied item type + display name
+-> resolves CopyJob by exact display name
+-> resolves SparkJobDefinition by exact display name
+-> fails if an exact item is missing or ambiguous
+-> writes one credential-free verified binding record
+```
+
+Expected output:
+
+```text
+build/fabric-items/fabric-bindings.json
+```
+
+Representative shape:
+
+```json
+{
+  "schema_version": 1,
+  "verification_status": "VERIFIED",
+  "environment": "DEV",
+  "workspace_id": "<workspace-uuid>",
+  "deployment_result_sha256": "<sha256>",
+  "notebook": {
+    "id": "<notebook-uuid>",
+    "type": "Notebook",
+    "display_name": "framework-certification-worker"
+  },
+  "item_read": {
+    "id": "<item-read-uuid>",
+    "type": "<actual-item-type>",
+    "display_name": "<actual-display-name>"
+  },
+  "pipeline": {
+    "id": "<pipeline-uuid>",
+    "type": "DataPipeline",
+    "display_name": "framework-certification-child"
+  },
+  "copy_job": {
+    "id": "<copy-job-uuid>",
+    "type": "CopyJob",
+    "display_name": "<actual-display-name>"
+  },
+  "spark_job": {
+    "id": "<spark-job-uuid>",
+    "type": "SparkJobDefinition",
+    "display_name": "<actual-display-name>"
+  },
+  "contains_secret_values": false,
+  "certification_result": "NOT_RUN"
+}
+```
+
+This is the preferred physical-binding input to the Customer candidate-input builder. The engineer no longer needs to copy the workspace/Pipeline/Copy/Spark/item-read UUIDs into the builder command.
+
+**Stop condition:** if the resolver says an item is missing, duplicated, wrong type, in another workspace, or the Notebook/Pipeline UUID no longer matches the deployment record, stop. Do not pick a visually similar item or edit the JSON by hand.
+
+After the resolver succeeds, remove the API token from the shell/runtime environment according to organization policy. The next local packaging command does not need Fabric API access.
+
+## 6. What setup records do and do not retain
+
+The deployment/binding records may retain these non-secret anchors:
 
 ```text
 DEV/UAT environment
 workspace UUID
-Notebook UUID
-Pipeline UUID
+exact Notebook/Pipeline/item-read/Copy/Spark UUIDs
+exact item types
 exact display names
 rendered-definition SHA256 fingerprints
+deployment-result SHA256
 create/update action
 customer-inputs conventional path
 ```
 
-It does **not** retain:
+They do **not** retain:
 
 ```text
 Fabric access token
@@ -189,9 +292,9 @@ Key Vault secret values
 certification PASS/FAIL claims
 ```
 
-The Key Vault URL and secret names are embedded in the Pipeline definition because the worker needs those non-secret references at runtime; the result file itself does not copy them back out.
+The Key Vault URL and secret names are embedded in the Pipeline definition because the worker needs those non-secret references at runtime; the deployment/binding output does not copy the actual database URL secret values.
 
-## 6. Render-only/manual fallback
+## 7. Render-only/manual deployment fallback
 
 Use this fallback only when organizational policy does not permit the repository deployer to call Fabric item APIs and another approved deployment mechanism must consume payload files.
 
@@ -220,9 +323,11 @@ Deploy the resulting Pipeline definition and record the actual Pipeline UUID.
 
 The renderer rejects malformed UUIDs, credential-bearing Key Vault URLs, unsafe secret names and unresolved placeholders. Do not patch around a validation failure.
 
+If API read/list access is allowed even though mutation is not, you may still construct a deployment-result-equivalent record only through an organization-approved process and then run the read-only resolver. Otherwise retain exact IDs through the approved manual process and use the builder's backwards-compatible explicit binding flags.
+
 Manual fallback has the same semantic boundary as the deployer: item creation/update does not produce a certification PASS.
 
-## 7. Prepare the dedicated certification Warehouse fixtures
+## 8. Prepare the dedicated certification Warehouse fixtures
 
 Open:
 
@@ -250,7 +355,7 @@ Stop immediately if you cannot prove the SQL connection targets the dedicated ce
 
 The script is fixture provisioning only. It is not a substitute for the Framework-approved normal Warehouse COMMIT or ambiguous-COMMIT evidence runners.
 
-## 8. Control Plane SQL Database
+## 9. Control Plane SQL Database
 
 Use a dedicated certification SQL Database for the Control Plane.
 
@@ -272,47 +377,86 @@ That explicit first-time path applies the current Control Plane schema **and** i
 
 Normal reruns keep `allow_control_plane_migration=False`.
 
-## 9. Copy and Spark certification items remain separate
-
-The exact Customer bundle also binds configured Copy and Spark item UUIDs used by the approved capture runners.
-
-The Notebook/Pipeline deployer does **not** create or invent these bindings. They remain independent physical items.
-
-The Customer input builder requires:
-
-```text
-workspace-id
-item-read-id
-pipeline-item-id
-copy-job-id
-spark-job-id
-control-plane-profile
-```
-
-Use the real Pipeline UUID from `deployment-result.json` for `pipeline-item-id`. Use separately verified real UUIDs for item-read/Copy/Spark. Never substitute the Pipeline UUID for all item types.
-
 ## 10. Produce the exact Customer certification input artifact
 
-Use the existing `candidate-business-path-inputs` workflow / `certification/build_candidate_inputs.py` path for the exact Framework candidate and exact Customer source SHA intended for the run.
+For a real environment, prefer the verified binding file produced above:
 
-The retained bundle must contain:
+```bash
+python certification/build_candidate_inputs.py \
+  --extension-wheel <EXACT_CUSTOMER_CERTIFICATION_EXTENSION_WHEEL> \
+  --output <EXACT_OUTPUT_DIRECTORY> \
+  --customer-git-sha <EXACT_CUSTOMER_GIT_SHA> \
+  --candidate-git-sha <EXACT_FRAMEWORK_GIT_SHA> \
+  --candidate-wheel-sha256 <EXACT_FRAMEWORK_WHEEL_SHA256> \
+  --framework-version 0.4.0 \
+  --environment DEV \
+  --fabric-bindings build/fabric-items/fabric-bindings.json \
+  --control-plane-profile fabric_sql_database_v1
+```
+
+The builder validates that:
+
+```text
+binding schema is supported
+verification_status = VERIFIED
+environment matches
+contains_secret_values = false
+certification_result = NOT_RUN
+deployment_result_sha256 is a real lowercase SHA256
+Pipeline type = DataPipeline
+Copy type = CopyJob
+Spark type = SparkJobDefinition
+Notebook type = Notebook
+all retained IDs are UUIDs
+optional explicit IDs, if also supplied, exactly match the verified file
+```
+
+The builder copies the exact verified record into the retained bundle as:
+
+```text
+fabric-bindings.json
+```
+
+and records its SHA256 in `INPUTS.json`:
+
+```text
+physical_binding_source = verified_fabric_bindings
+fabric_bindings_sha256 = <sha256 of retained fabric-bindings.json>
+```
+
+The older explicit form remains supported for controlled fallback/testing:
+
+```text
+--workspace-id
+--item-read-id
+--pipeline-item-id
+--copy-job-id
+--spark-job-id
+```
+
+When `--fabric-bindings` is not supplied, **all five** explicit values are required and UUID-validated. If both a verified file and explicit values are supplied, every explicit value must match the verified file; disagreement fails closed.
+
+Use the existing `candidate-business-path-inputs` workflow when retained GitHub producer provenance is required. That workflow still accepts explicit IDs and remains backwards compatible; do not claim a local bundle has GitHub workflow provenance it does not have.
+
+The exact retained bundle may now contain:
 
 ```text
 INPUTS.json
 runner-config.json
 release-manifest.json
+fabric-bindings.json      # when verified binding-file path is used
 project/
 dist/
 ```
 
-and bind:
+It binds:
 
 ```text
 exact Framework candidate Git SHA
 exact Framework wheel SHA256
 exact Customer Git SHA
 exact domain release hash
-actual certification Fabric item UUIDs
+actual verified certification Fabric item UUIDs
 exact Customer extension wheel SHA256
 ```
 
@@ -320,7 +464,7 @@ Do not edit the retained bundle after generation to swap item IDs or hashes.
 
 ## 11. Upload/extract the exact bundle into the certification Lakehouse
 
-Expected layout:
+Expected layout when verified bindings were used:
 
 ```text
 /lakehouse/default/Files/framework_cert/
@@ -331,11 +475,12 @@ Expected layout:
     INPUTS.json
     runner-config.json
     release-manifest.json
+    fabric-bindings.json
     project/
     dist/
 ```
 
-The Framework public API validates exact candidate SHA/wheel/version identity before using Customer inputs.
+The Framework public API validates exact candidate SHA/wheel/version identity before using Customer inputs. `fabric-bindings.json` is retained Customer-side physical-binding provenance; it does not by itself create a Framework PASS.
 
 ## 12. Runtime secret resolution
 
@@ -379,9 +524,11 @@ business-path expected a retry/failure but outcome semantics differ
 
 Customer code cannot self-declare release-readiness PASS.
 
-## 14. What this deployment still does not solve
+## 14. What this automation still does not solve
 
-Automated Notebook/Pipeline deployment reduces operator setup work, but it does not manufacture enterprise release evidence.
+Deployment + binding resolution reduces operator setup work, but does not manufacture enterprise release evidence or physical items that do not exist.
+
+It does **not** create the CopyJob or SparkJobDefinition. Those must already be real approved certification items before the resolver can find them. It also does not decide which item should own the read-only smoke; the engineer supplies the exact approved item type/name.
 
 Current strict blockers remain real until independently satisfied:
 
@@ -397,13 +544,32 @@ It also does not provision/approve:
 seven Control Plane enterprise evidence records
 Warehouse ambiguous-COMMIT fault controller
 Warehouse administrator session-termination authorization
-Copy/Spark item identities
-exact selected-candidate Customer input bundle
+exact selected-candidate Customer input artifact provenance
 ```
 
 Do not configure placeholders merely to clear a blocker.
 
-## 15. New-conversation recovery
+## 15. Recommended operator sequence
+
+For a new exact Framework real-Fabric run:
+
+```text
+1. verify current GitHub main/recovery docs and exact Framework executable wheel identity
+2. obtain approved short-lived Fabric API access token
+3. deploy/update repository-owned Notebook + Pipeline
+4. resolve/verify Notebook + Pipeline + item-read + Copy + Spark into fabric-bindings.json
+5. remove the Fabric API token from the local environment when no longer needed
+6. provision/verify dedicated Warehouse fixture tables
+7. build the exact Customer input bundle using --fabric-bindings
+8. upload exact Framework wheel/CANDIDATE/SHA256SUMS + exact Customer bundle
+9. run bounded certification first
+10. STOP on any real bounded FAIL
+11. use first-time Control Plane migration only for a new dedicated certification DB
+12. proceed to ordinary live stages only with approved mutations
+13. leave missing enterprise evidence/fault controller as BLOCKED/NOT_RUN
+```
+
+## 16. New-conversation recovery
 
 After a context reset, read current GitHub `main` in this order:
 
@@ -412,11 +578,12 @@ After a context reset, read current GitHub `main` in this order:
 2. docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
 3. docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md
 4. certification/fabric_items/deploy_fabric_items.py
-5. certification/fabric_items/render_fabric_items.py
-6. certification/project/config/certification/pipeline-worker.json
-7. fabric-data-framework/docs/machine/STATE.md
-8. fabric-data-framework/docs/machine/UNIFIED_CERTIFICATION.md
-9. fabric-data-framework/docs/human/ONE_CALL_CERTIFICATION_RUNTIME.md
+5. certification/fabric_items/resolve_fabric_bindings.py
+6. certification/build_candidate_inputs.py
+7. certification/project/config/certification/pipeline-worker.json
+8. fabric-data-framework/docs/machine/STATE.md
+9. fabric-data-framework/docs/machine/UNIFIED_CERTIFICATION.md
+10. fabric-data-framework/docs/human/ONE_CALL_CERTIFICATION_RUNTIME.md
 ```
 
 Then verify the exact Framework substantive executable source/main-CI artifact identity and exact Customer source SHA before continuing. Never recover executable candidate identity from chat memory alone.
