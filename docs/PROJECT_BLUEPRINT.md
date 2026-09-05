@@ -173,7 +173,15 @@ fabric-data-framework==0.3.0
 
 The released integration lane downloads immutable v0.3.0 and never substitutes Framework `main`.
 
-The historical framework-next project-contract lane remains separately pinned for `project-init` / `project-validate` compatibility. The independent 0.4 certification-contract lane tracks the current substantive Framework development baseline recorded in `.github/workflows/certification-contract.yml` and `docs/CURRENT_STATUS.md`.
+The historical framework-next project-contract compatibility lane remains pinned to:
+
+```text
+148e02e3fff7861f238296e7554815a6fd49dd0a
+```
+
+It is retained only for the established `project-init` / `project-validate` transition contract and must not be confused with the separate current 0.4 certification baseline.
+
+The independent 0.4 certification-contract lane tracks the current substantive Framework development baseline recorded in `.github/workflows/certification-contract.yml` and `docs/CURRENT_STATUS.md`.
 
 Neither development lane changes `pyproject.toml` or becomes a production runtime dependency.
 
