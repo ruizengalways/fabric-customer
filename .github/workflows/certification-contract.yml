@@ -9,9 +9,11 @@ permissions:
   contents: read
 
 env:
-  # Current 0.4 code baseline after framework PR #94. This is a source/CI
-  # compatibility lane only; Customer production remains pinned to v0.3.0.
-  CERTIFICATION_FRAMEWORK_SHA: abc8b3a2b80b3f6babf88fdc2347a3bfe69be356
+  # Current Framework substantive source baseline after PR #105. It owns the durable
+  # Fabric Pipeline child plus one-call runtime/first-time Control Plane bootstrap.
+  # This is a source/CI compatibility lane only; Customer production remains pinned
+  # to immutable v0.3.0 until Framework v0.4.0 is actually released and approved.
+  CERTIFICATION_FRAMEWORK_SHA: cb9f9be77a98a0a5aa8c5f85e0fa3d92697c60f0
 
 jobs:
   certification-contract:
@@ -79,4 +81,5 @@ jobs:
           assert Path("build/certification-inputs/release-manifest.json").is_file()
           assert Path("build/certification-inputs/runner-config.json").is_file()
           assert Path("build/certification-inputs/project/config/datasets/cert.full_replace.json").is_file()
+          assert Path("build/certification-inputs/project/config/certification/pipeline-worker.json").is_file()
           PY

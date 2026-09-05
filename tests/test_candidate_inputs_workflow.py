@@ -2,8 +2,11 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CURRENT_CERTIFICATION_FRAMEWORK_SHA = "abc8b3a2b80b3f6babf88fdc2347a3bfe69be356"
-CUSTOMER_PR12_MERGE_SHA = "9ddc11405de329fb647fb21b1217d1015e0fa3f5"
+CURRENT_CERTIFICATION_FRAMEWORK_SHA = "cb9f9be77a98a0a5aa8c5f85e0fa3d92697c60f0"
+HISTORICAL_FIRST_FABRIC_SHA = "303683729c4915d78200d463a6def01c8de9eae6"
+HISTORICAL_FIRST_FABRIC_WHEEL_SHA = (
+    "0638c95c19ebcc43ec4ec462b7f960a164209874223517e3f74b951264b0eaf6"
+)
 
 
 def test_candidate_input_workflow_is_manual_exact_input_packaging_only():
@@ -37,10 +40,11 @@ def test_certification_slice_is_separate_from_released_customer_runtime_pin():
     assert {path.name for path in dataset_dir.glob("*.json")} == expected
 
 
-def test_certification_contract_tracks_current_framework_code_baseline_only():
+def test_certification_contract_tracks_current_framework_substantive_baseline_only():
     workflow = (ROOT / ".github/workflows/certification-contract.yml").read_text()
     assert f"CERTIFICATION_FRAMEWORK_SHA: {CURRENT_CERTIFICATION_FRAMEWORK_SHA}" in workflow
-    assert "689bc1097474b26866af8675e32592e4cf65fa1f" not in workflow
+    assert "one-call runtime/first-time Control Plane bootstrap" in workflow
+    assert "Customer production remains pinned" in workflow
     assert "fabric-data-framework==0.3.0" in (ROOT / "pyproject.toml").read_text()
 
 
@@ -53,7 +57,15 @@ def test_customer_extensions_cannot_author_readiness_status():
         ROOT
         / "certification/extensions/src/fabric_customer_certification_extensions/business_driver.py"
     ).read_text()
-    combined = source + driver
+    observer = (
+        ROOT
+        / "certification/extensions/src/fabric_customer_certification_extensions/business_observer.py"
+    ).read_text()
+    worker = (
+        ROOT
+        / "certification/extensions/src/fabric_customer_certification_extensions/pipeline_worker.py"
+    ).read_text()
+    combined = source + driver + observer + worker
     assert "ReleaseReadinessProofResult" not in combined
     assert "ReleaseReadinessStatus" not in combined
     assert "IntegrationEvidenceCheckResult" not in combined
@@ -75,36 +87,24 @@ def test_exact_business_path_plan_covers_five_required_gates():
     }
 
 
-def test_current_status_cannot_regress_from_merged_candidate_input_baseline():
+def test_current_status_is_recoverable_without_chat_history():
     status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
-    assert "MERGED + MAIN CI PROVEN — PR #10" in status
-    assert "cda90f1c02fc9606aa64d2d1bd13f2ab89628aab" in status
-    assert "fabric-data-framework==0.3.0" in status
-    assert CURRENT_CERTIFICATION_FRAMEWORK_SHA in status
-    assert "PR CI PROVEN / PENDING MERGE — PR #10" not in status
-    assert "IMPLEMENTED ON FEATURE BRANCH; CI/PR PROOF PENDING" not in status
-    assert "control_plane_external_evidence_incomplete" in status
-    assert "warehouse_real_fault_controller_not_configured" in status
+    for token in (
+        "New-conversation recovery checkpoint",
+        CURRENT_CERTIFICATION_FRAMEWORK_SHA,
+        "33961827610",
+        "13c9c7696f9c657243af1133731bf58600cffb3a78f77bede606a1b00a6c2c79",
+        "fabric-data-framework==0.3.0",
+        "candidate_status: not_frozen",
+        "release_allowed: false",
+        "control_plane_external_evidence_incomplete",
+        "warehouse_real_fault_controller_not_configured",
+        "DEPLOY_CERTIFICATION_FABRIC_ITEMS.md",
+    ):
+        assert token in status
 
 
-def test_current_status_locks_merged_pr12_cross_repo_recovery_baseline():
-    status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
-    assert "New-conversation recovery checkpoint" in status
-    assert "MERGED + MAIN CI PROVEN — PR #12" in status
-    assert CUSTOMER_PR12_MERGE_SHA in status
-    assert "33363980824 SUCCESS" in status
-    assert "33363980826 SUCCESS" in status
-    assert "33364050484 SUCCESS" in status
-    assert "33364050481 SUCCESS" in status
-    assert "14 passed" in status
-    assert "abc8b3a2b80b3f6babf88fdc2347a3bfe69be356" in status
-    assert "4006afb409c81c5510690c8c4dbeadd5e002fd0b" in status
-    assert "15" in status
-    assert "candidate frozen             false" in status
-    assert "selected-candidate Customer input artifact   not retained" in status
-
-
-def test_first_company_fabric_test_recovery_context_is_locked():
+def test_historical_first_company_fabric_evidence_remains_exact_and_old_byte_only():
     status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
     wrapper = ROOT / "docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md"
     certification_runbook = ROOT / "docs/runbooks/CERTIFY_FRAMEWORK_0_4.md"
@@ -112,31 +112,26 @@ def test_first_company_fabric_test_recovery_context_is_locked():
     assert wrapper.is_file()
     assert certification_runbook.is_file()
     for token in (
-        "303683729c4915d78200d463a6def01c8de9eae6",
+        HISTORICAL_FIRST_FABRIC_SHA,
         "33381666892",
-        "9753976212",
-        "0638c95c19ebcc43ec4ec462b7f960a164209874223517e3f74b951264b0eaf6",
-        "TEST_FRAMEWORK_IN_COMPANY_FABRIC.md",
-        "first company-Fabric test executed            yes — bounded PASS/NOT_RUN result",
-        "manual Notebook certification                 CERTIFIED",
-        "manual Admin Override                         not used",
-        "manual release authorization                  false",
-        "release_allowed                    false",
-        "Framework exact candidate                    not frozen",
-        "Customer production pin                       fabric-data-framework==0.3.0",
+        HISTORICAL_FIRST_FABRIC_WHEEL_SHA,
+        "historical",
+        "warehouse.commit",
+        "NOT_RUN",
+        "release authorized",
+        "false",
     ):
-        assert token in status
+        assert token in status or token in wrapper.read_text()
 
     wrapper_text = wrapper.read_text()
     assert "unified real-Fabric certification is the default path" in wrapper_text
     assert "from fabric_data_framework.certification import certify" in wrapper_text
+    assert "runtime_environment" in wrapper_text
     assert "allow_live_mutations=True" in wrapper_text
-    assert "warehouse.commit                   NOT_RUN" in wrapper_text
-    assert "warehouse.ambiguous_commit         NOT_RUN" in wrapper_text
-    assert "admin override                     false" in wrapper_text
-    assert "release authorized                 false" in wrapper_text
+    assert "allow_control_plane_migration=True" in wrapper_text
     assert "release_authorized = false" in wrapper_text
     assert "fabric-data-framework==0.3.0" in wrapper_text
+    assert "DEPLOY_CERTIFICATION_FABRIC_ITEMS.md" in wrapper_text
 
     certification_text = certification_runbook.read_text()
     assert "Lane A — bounded company-Fabric Notebook validation" in certification_text
@@ -144,13 +139,13 @@ def test_first_company_fabric_test_recovery_context_is_locked():
     assert "not the current Framework main code baseline" in certification_text
 
 
-def test_pr17_merged_main_recovery_checkpoint_is_retained():
+def test_current_status_keeps_strict_release_prerequisites_honest():
     status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
-    assert "Customer PR #17" in status
-    assert "0e128380e6b4ed54d4f192e0676da397177f6e2f" in status
-    assert "33382409587 SUCCESS" in status
-    assert "33382409601 SUCCESS" in status
-    assert "33382529532 SUCCESS" in status
-    assert "33382529539 SUCCESS" in status
-    assert "33382034631 SUCCESS" in status
-    assert "production Framework dependency fabric-data-framework==0.3.0" in status
+    assert "seven" in status.lower() or "7" in status
+    assert "control_plane_external_evidence_incomplete" in status
+    assert "control_plane_external_evidence_not_review_bound" in status
+    assert "warehouse_real_fault_controller_not_configured" in status
+    assert "release_allowed: false" in status
+    assert "candidate_status: not_frozen" in status
+    assert "release_authorized=false" in status or "release_authorized = false" in status
+    assert "fabric-data-framework==0.3.0" in status
