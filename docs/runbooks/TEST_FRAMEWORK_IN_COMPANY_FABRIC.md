@@ -2,7 +2,7 @@
 
 Status: unified real-Fabric certification is the default path. The original 2026-09-03 bounded test remains historical evidence for its exact old wheel only.
 
-This is the Customer-side operator entrypoint for testing an exact Framework candidate in company Fabric. New candidates should not require an engineer to copy many Notebook cells, build a random Pipeline by hand, manually fill PASS/FAIL dropdowns, or manually create the repository-owned certification Notebook/Pipeline when the approved Fabric API path is available.
+This is the Customer-side operator entrypoint for testing an exact Framework candidate in company Fabric. New candidates should not require an engineer to copy many Notebook cells, build a random Pipeline by hand, manually fill PASS/FAIL dropdowns, manually create the repository-owned certification Notebook/Pipeline, or hand-copy Fabric item GUIDs when the approved Fabric API path is available.
 
 Canonical companion runbooks:
 
@@ -19,15 +19,16 @@ PR/main CI proves deterministic Framework and Customer contracts. Real Fabric ce
 
 Do not run the entire pytest suite inside Fabric merely to duplicate CI.
 
-If Framework source changes after a real-Fabric run, the old PASS values remain evidence only for the old wheel bytes.
+If Framework executable source changes after a real-Fabric run, old PASS values remain evidence only for the old wheel bytes.
 
-## 2. Do not improvise the certification Pipeline
+## 2. Deploy the repository-owned Notebook/Pipeline; do not improvise
 
-The Customer repo owns a deployable reusable reference implementation:
+The Customer repo owns:
 
 ```text
 certification/fabric_items/
   deploy_fabric_items.py
+  resolve_fabric_bindings.py
   render_fabric_items.py
   notebook/certification-pipeline-worker.ipynb
   pipeline/pipeline-content.template.json
@@ -37,13 +38,13 @@ certification/project/config/certification/pipeline-worker.json
 certification/extensions/src/fabric_customer_certification_extensions/pipeline_worker.py
 ```
 
-Before full Pipeline/business-path certification, deploy the Notebook/Pipeline using:
+Follow:
 
 ```text
 docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md
 ```
 
-Preferred DEV path, when your organization permits the Fabric item APIs:
+Preferred DEV deployment path:
 
 ```bash
 export FABRIC_ACCESS_TOKEN='<approved runtime token>'
@@ -56,9 +57,13 @@ python certification/fabric_items/deploy_fabric_items.py \
   --warehouse-secret-name <WAREHOUSE_URL_SECRET_NAME>
 ```
 
-Do not put the token in a CLI argument, Notebook, Git, retained certification evidence or chat. The deployer creates or updates the exact display-name items, waits for Fabric long-running operations, and records the real Notebook/Pipeline UUIDs in a non-secret `deployment-result.json`. The result deliberately says `certification_result=NOT_RUN`; successful item deployment is not a certification PASS.
+Do not put the token in a CLI argument, Notebook, Git, retained evidence or chat. The deployment record deliberately says:
 
-If corporate policy requires another deployment mechanism, use the runbook's render-only/manual fallback instead of inventing an alternate Pipeline definition.
+```text
+certification_result = NOT_RUN
+```
+
+Successful item deployment is not certification PASS.
 
 The reusable Pipeline forwards exactly seven Framework-owned dynamic parameters:
 
@@ -74,7 +79,49 @@ execution_plan_hash
 
 Fabric provider `Completed` is not enough. The worker must persist the exact Framework `DatasetRunAudit`/`DatasetDispatchOutcome` for the generated dataset-run ID.
 
-## 3. Conventional Lakehouse layout
+## 3. Resolve exact Fabric physical bindings by human-readable names
+
+After the deployment command succeeds, use the read-only resolver instead of manually copying workspace/Pipeline/Copy/Spark/item-read UUIDs:
+
+```bash
+python certification/fabric_items/resolve_fabric_bindings.py \
+  --deployment-result build/fabric-items/deployment-result.json \
+  --item-read-type <ACTUAL_ITEM_TYPE> \
+  --item-read-display-name '<EXACT_READ_ITEM_DISPLAY_NAME>' \
+  --copy-job-display-name '<EXACT_COPY_JOB_DISPLAY_NAME>' \
+  --spark-job-display-name '<EXACT_SPARK_JOB_DISPLAY_NAME>'
+```
+
+Expected output:
+
+```text
+build/fabric-items/fabric-bindings.json
+```
+
+The resolver re-verifies the exact Notebook and DataPipeline UUIDs from deployment, then resolves:
+
+```text
+item-read        exact caller-supplied Fabric type + exact display name
+Pipeline         DataPipeline + deployed exact display name/UUID
+Copy             CopyJob + exact display name
+Spark            SparkJobDefinition + exact display name
+```
+
+Missing, ambiguous, wrong-type, wrong-workspace, or changed Notebook/Pipeline identity fails closed. The resolver is read-only and retains no token or SQL secret values.
+
+The binding record deliberately says:
+
+```text
+verification_status = VERIFIED
+contains_secret_values = false
+certification_result = NOT_RUN
+```
+
+`VERIFIED` means only that those physical item identities were read from Fabric and cross-checked; it is not a Framework test PASS.
+
+Once this succeeds, remove the setup API token from the local environment according to company policy.
+
+## 4. Conventional Lakehouse layout and exact Framework artifact
 
 Use an isolated/approved certification workspace, normally DEV first.
 
@@ -100,7 +147,7 @@ fabric_data_framework-<version>-py3-none-any.whl
 
 Keep exactly one Framework wheel in this directory.
 
-## 4. Bounded certification comes first
+## 5. Bounded certification comes first
 
 Install the exact Framework wheel, restart the Notebook session if Fabric requires it, then run:
 
@@ -133,53 +180,55 @@ With no `customer-inputs/`, overall `PARTIAL` can be correct when every bounded 
 
 **Stop on any real bounded FAIL.** Do not proceed to SQL/Pipeline/Warehouse mutations just to see whether later checks pass.
 
-## 5. Exact Customer input bundle
+## 6. Build the exact Customer input bundle from verified bindings
 
-Full environment stages require the exact Customer candidate-input artifact produced for the same Framework candidate and exact Customer source SHA intended for the run.
+Full environment stages require an exact Customer candidate-input artifact for the same Framework candidate and exact Customer source SHA intended for the run.
 
-When the automated deployment path was used, take the real Pipeline item UUID from:
+For a real environment, prefer:
 
-```text
-build/fabric-items/deployment-result.json
+```bash
+python certification/build_candidate_inputs.py \
+  --extension-wheel <EXACT_CUSTOMER_CERTIFICATION_EXTENSION_WHEEL> \
+  --output <EXACT_OUTPUT_DIRECTORY> \
+  --customer-git-sha <EXACT_CUSTOMER_GIT_SHA> \
+  --candidate-git-sha <EXACT_FRAMEWORK_GIT_SHA> \
+  --candidate-wheel-sha256 <EXACT_FRAMEWORK_WHEEL_SHA256> \
+  --framework-version 0.4.0 \
+  --environment DEV \
+  --fabric-bindings build/fabric-items/fabric-bindings.json \
+  --control-plane-profile fabric_sql_database_v1
 ```
 
-The item-read/Copy/Spark UUIDs remain separate verified physical bindings; the Notebook/Pipeline deployer does not invent them.
+The builder re-validates the binding schema, environment, UUIDs and exact item types before writing `runner-config.json`. It copies the exact verified physical binding record into the retained bundle and records its SHA256 in `INPUTS.json`.
 
-Extract the exact Customer bundle under:
-
-```text
-/lakehouse/default/Files/framework_cert/customer-inputs/
-```
-
-Expected layout:
+Expected retained shape:
 
 ```text
 customer-inputs/
   INPUTS.json
   runner-config.json
   release-manifest.json
+  fabric-bindings.json       # when verified binding-file path is used
   project/
   dist/
 ```
 
-The bundle owns non-secret routing/configuration:
+`INPUTS.json` records:
 
 ```text
-workspace/item physical bindings
-representative dataset IDs
-control-plane profile
-Pipeline/Copy/Spark recipes
-Warehouse normal/fault recipes
-five-business-path plan
-exact Customer extension wheel fingerprints
-runtime environment-variable names
+physical_binding_source = verified_fabric_bindings
+fabric_bindings_sha256 = <exact retained binding-file SHA256>
 ```
 
-Do not manually edit the exact retained bundle to swap GUIDs or hashes.
+The builder still supports the old explicit `--workspace-id/--item-read-id/--pipeline-item-id/--copy-job-id/--spark-job-id` path for controlled fallback. Without `--fabric-bindings`, all five explicit UUIDs are required. If a verified file and explicit values are both supplied, mismatches fail closed.
 
-## 6. Runtime values are explicit and shared consistently
+When retained GitHub workflow provenance is required, use the existing `candidate-business-path-inputs` workflow and record the exact workflow artifact. Do not claim a locally built bundle has GitHub workflow provenance it does not have.
 
-The source-controlled Customer bundle stores variable **names**, never secret values.
+Do not manually edit an exact retained bundle to swap GUIDs or hashes.
+
+## 7. Runtime values are explicit and shared consistently
+
+The source-controlled/retained Customer bundle stores runtime variable **names**, never SQL secret values.
 
 Reference names:
 
@@ -190,7 +239,7 @@ WAREHOUSE_DATABASE_URL
 WAREHOUSE_ADMIN_DATABASE_URL   # only when separately required/approved
 ```
 
-For full certification, prefer an explicit runtime mapping from your organization-approved secret mechanism:
+For full certification, prefer an explicit runtime mapping from an organization-approved secret mechanism:
 
 ```python
 runtime_environment = {
@@ -201,7 +250,7 @@ runtime_environment = {
 
 Do not paste real connection strings into this repo or retained evidence.
 
-The Framework one-call API temporarily mirrors only exact runner-declared runtime names into process environment while the certification call runs. This allows approved Framework runners and exact Customer/domain extension entry points to consume one consistent runtime, and the previous process environment is restored when the call returns.
+The Framework one-call API temporarily mirrors only exact runner-declared runtime names into process environment while the certification call runs, then restores the prior process environment.
 
 Current business-path driver/observer use the same exact:
 
@@ -211,11 +260,9 @@ WAREHOUSE_DATABASE_URL
 
 There is no separate JSON-wrapped business-path database-secret channel to configure.
 
-Fabric REST authentication during certification may use the declared token runtime value or the current NotebookUtils Fabric/Power BI token when available. The local deployment token is a separate short-lived setup credential; do not treat its existence as retained certification evidence.
+## 8. Full ordinary live certification
 
-## 7. Full ordinary live certification
-
-Only after the dedicated DEV/UAT certification resources and ordinary certification mutations are approved:
+Only after dedicated DEV/UAT certification resources and ordinary certification mutations are approved:
 
 ```python
 from fabric_data_framework.certification import certify, print_certification_summary
@@ -256,16 +303,9 @@ bounded suite
 
 Missing evidence/configuration/authorization stays `BLOCKED` or `NOT_RUN`. Do not manufacture PASS values.
 
-## 8. First-time dedicated Fabric SQL Control Plane
+## 9. First-time dedicated Fabric SQL Control Plane
 
-A brand-new certification SQL Database needs both:
-
-```text
-current Framework Control Plane schema
-exact Customer semantic DatasetConfig definitions
-```
-
-A schema-only database is not enough for Pipeline/Warehouse because `SqlAlchemyControlPlaneRepository` verifies the deployed exact config hash.
+A brand-new certification SQL Database needs both current Framework Control Plane schema and exact Customer semantic DatasetConfig definitions.
 
 For the **first approved bootstrap only**:
 
@@ -290,17 +330,11 @@ bounded exact-wheel checks must all PASS
 -> proceed to normal unified stages
 ```
 
-If bounded checks fail, SQL bootstrap is not attempted.
-
-Normal reruns use:
-
-```text
-allow_control_plane_migration=False
-```
+If bounded checks fail, SQL bootstrap is not attempted. Normal reruns keep `allow_control_plane_migration=False`.
 
 Never enable first-time bootstrap against a shared/production SQL Control Plane just to make certification green.
 
-## 9. Seven Control Plane external-evidence references remain real governance
+## 10. Seven Control Plane external-evidence references remain real governance
 
 The unified runner does not eliminate enterprise evidence requirements:
 
@@ -314,20 +348,18 @@ monitoring_alerting_reference
 retention_governance_reference
 ```
 
-The public Customer repo may retain only stable non-secret references to real internal evidence/review records.
-
-Fail-closed blocker semantics remain:
+Fail-closed blockers remain:
 
 ```text
 control_plane_external_evidence_incomplete
 control_plane_external_evidence_not_review_bound
 ```
 
-Successful SQL connectivity is not a substitute for either.
+Successful SQL connectivity is not a substitute.
 
-## 10. Warehouse ambiguous COMMIT remains separately governed
+## 11. Warehouse ambiguous COMMIT remains separately governed
 
-A real fault drill requires a reviewed reachable real fault controller from exact Customer inputs.
+A real fault drill requires a reviewed reachable fault controller from exact Customer inputs.
 
 Until configured:
 
@@ -339,7 +371,7 @@ remains a real blocker.
 
 `allow_live_mutations=True` does not imply Admin/session-control permission.
 
-Only if company governance explicitly authorizes exact-session termination against the isolated certification Warehouse:
+Only if governance explicitly authorizes exact-session termination against the isolated certification Warehouse:
 
 ```python
 runtime_environment = {
@@ -358,7 +390,7 @@ report = certify(
 
 Never fault inject or terminate sessions against shared/PROD resources.
 
-## 11. Unified status semantics
+## 12. Unified status semantics
 
 ```text
 PASS      actual stage ran and passed
@@ -377,7 +409,7 @@ release_authorized = false
 
 Certification does not select/freeze a candidate and does not publish Framework 0.4.
 
-## 12. Customer production pin boundary
+## 13. Customer production pin boundary
 
 Until immutable Framework `v0.4.0` is actually published and governance permits migration, keep exactly:
 
@@ -385,9 +417,9 @@ Until immutable Framework `v0.4.0` is actually published and governance permits 
 fabric-data-framework==0.3.0
 ```
 
-Candidate compatibility/certification source may be 0.4 while the production dependency remains 0.3.0. Do not conflate these lanes.
+Candidate compatibility/certification source may be 0.4 while production dependency remains 0.3.0. Do not conflate these lanes.
 
-## 13. Historical first company run — old bytes only
+## 14. Historical first company run — old bytes only
 
 The first bounded company-Fabric execution occurred on 2026-09-03.
 
@@ -416,9 +448,9 @@ admin override                     false
 release authorized                 false
 ```
 
-That evidence remains valid for those exact old bytes only. It cannot be copied onto a current Framework main wheel.
+That evidence remains valid for those exact old bytes only. It cannot be copied onto the current Framework PR #105 wheel.
 
-## 14. Manual cells/form are fallback diagnostics
+## 15. Manual cells/form are fallback diagnostics
 
 Older explicit diagnostic paths remain useful for isolating failures:
 
@@ -429,7 +461,7 @@ fabric-data-framework/docs/human/MANUAL_CERTIFICATION.md
 
 The form is a result recorder, not a test executor.
 
-## 15. New-conversation recovery
+## 16. New-conversation recovery
 
 Always re-read current GitHub `main`, not chat memory:
 
@@ -438,11 +470,12 @@ Always re-read current GitHub `main`, not chat memory:
 2. fabric-customer/docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
 3. fabric-customer/docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md
 4. fabric-customer/certification/fabric_items/deploy_fabric_items.py
-5. fabric-customer/docs/runbooks/CONTROL_PLANE_EXTERNAL_EVIDENCE_REVIEW.md
-6. fabric-data-framework/docs/machine/STATE.md
-7. fabric-data-framework/docs/machine/UNIFIED_CERTIFICATION.md
-8. fabric-data-framework/docs/human/ONE_CALL_CERTIFICATION_RUNTIME.md
-9. fabric-data-framework/docs/human/FABRIC_PIPELINE_CHILD_CONTRACT.md
+5. fabric-customer/certification/fabric_items/resolve_fabric_bindings.py
+6. fabric-customer/certification/build_candidate_inputs.py
+7. fabric-customer/docs/runbooks/CONTROL_PLANE_EXTERNAL_EVIDENCE_REVIEW.md
+8. fabric-data-framework/docs/machine/STATE.md
+9. fabric-data-framework/docs/machine/UNIFIED_CERTIFICATION.md
+10. fabric-data-framework/docs/human/ONE_CALL_CERTIFICATION_RUNTIME.md
 ```
 
 Then verify:
@@ -456,7 +489,7 @@ release_allowed = false unless explicit release governance changed it
 Customer production pin
 control-plane external-evidence blockers
 Warehouse fault-controller blocker
-actual company-Fabric deployment state
+actual company-Fabric deployment/binding state
 ```
 
 If Framework executable source changed after the last real-Fabric run, obtain a new exact successful-main artifact before continuing testing.
