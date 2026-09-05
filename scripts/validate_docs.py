@@ -1,8 +1,8 @@
 """Dependency-free consistency checks for canonical Customer documentation.
 
 The goal is not prose linting. This gate prevents version pins, framework-next SHA,
-project commands, proof labels and known stale implementation states from silently
-drifting across the files engineers use to bootstrap a new domain.
+project commands, proof labels, enterprise topology, and known stale implementation
+states from silently drifting across the files engineers use to bootstrap a new domain.
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ CANONICAL_DOCS = {
     "RUNBOOK": ROOT / "docs" / "runbooks" / "BUILD_NEW_DOMAIN_PROJECT.md",
     "EXAMPLE": ROOT / "examples" / "enterprise_100_table" / "README.md",
 }
+TOPOLOGY_DOC = ROOT / "docs" / "runbooks" / "ENTERPRISE_ENVIRONMENT_TOPOLOGY.md"
 
 FORBIDDEN_STALE_PHRASES = (
     "pending branch CI/merge",
@@ -62,6 +63,7 @@ def main() -> int:
         label: path.read_text(encoding="utf-8")
         for label, path in CANONICAL_DOCS.items()
     }
+    topology = TOPOLOGY_DOC.read_text(encoding="utf-8")
 
     for label, text in texts.items():
         _require(text, version, label=label)
@@ -82,6 +84,26 @@ def main() -> int:
     for label in ("README", "BLUEPRINT", "STATUS", "RUNBOOK", "EXAMPLE"):
         _require(texts[label], "Debezium", label=label)
 
+    # Enterprise environment topology is a distinct operational contract. It is kept
+    # outside the legacy five-document count so older checkpoint evidence remains
+    # stable, but its required architecture tokens are still CI-enforced.
+    for label, text in (
+        ("README", texts["README"]),
+        ("BLUEPRINT", texts["BLUEPRINT"]),
+        ("TOPOLOGY", topology),
+    ):
+        _require(text, "fabric_sql_database_v1", label=label)
+        _require(text, "DEV", label=label)
+        _require(text, "UAT", label=label)
+        _require(text, "PROD", label=label)
+        _require(text, "Lakehouse", label=label)
+        _require(text, "Warehouse", label=label)
+
+    _require(topology, "Fabric SQL Database", label="TOPOLOGY")
+    _require(topology, "Warehouse is optional", label="TOPOLOGY")
+    _require(topology, "Why not Lakehouse control tables", label="TOPOLOGY")
+    _require(topology, "Never promote DEV runtime rows", label="TOPOLOGY")
+
     if not (ROOT / "fabric-project.json").is_file():
         raise ValueError("fabric-project.json is required by the documented project contract")
     if not (ROOT / "config" / "capture" / "semantic-selections.json").is_file():
@@ -92,7 +114,8 @@ def main() -> int:
     print(
         "validated canonical docs "
         f"released_framework={version} framework_next_sha={next_sha} "
-        f"documents={len(texts)} stale_phrases={len(FORBIDDEN_STALE_PHRASES)}"
+        f"documents={len(texts)} stale_phrases={len(FORBIDDEN_STALE_PHRASES)} "
+        "enterprise_topology=validated"
     )
     return 0
 
