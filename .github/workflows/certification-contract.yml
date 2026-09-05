@@ -9,10 +9,11 @@ permissions:
   contents: read
 
 env:
-  # Current Framework source baseline owning the durable Fabric Pipeline child
-  # contract. This is a source/CI compatibility lane only; Customer production
-  # remains pinned to immutable v0.3.0.
-  CERTIFICATION_FRAMEWORK_SHA: 94cc0c90631a6582c8ba84911bc100195e2fbb86
+  # Current Framework substantive source baseline after PR #105. It owns the durable
+  # Fabric Pipeline child plus one-call runtime/first-time Control Plane bootstrap.
+  # This is a source/CI compatibility lane only; Customer production remains pinned
+  # to immutable v0.3.0 until Framework v0.4.0 is actually released and approved.
+  CERTIFICATION_FRAMEWORK_SHA: cb9f9be77a98a0a5aa8c5f85e0fa3d92697c60f0
 
 jobs:
   certification-contract:
