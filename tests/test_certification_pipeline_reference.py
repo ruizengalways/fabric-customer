@@ -14,6 +14,16 @@ WORKER_SOURCE = (
     ROOT
     / "certification/extensions/src/fabric_customer_certification_extensions/pipeline_worker.py"
 )
+DRIVER_SOURCE = (
+    ROOT
+    / "certification/extensions/src/fabric_customer_certification_extensions/business_driver.py"
+)
+OBSERVER_SOURCE = (
+    ROOT
+    / "certification/extensions/src/fabric_customer_certification_extensions/business_observer.py"
+)
+EXTENSION_PYPROJECT = ROOT / "certification/extensions/pyproject.toml"
+DEPLOY_RUNBOOK = ROOT / "docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md"
 
 EXACT_DYNAMIC_PARAMETERS = {
     "framework_pipeline_run_id",
@@ -55,7 +65,9 @@ def test_pipeline_template_forwards_exact_framework_parameter_contract():
 def test_worker_notebook_is_parameterized_exact_artifact_execution_not_inline_pip():
     notebook = json.loads(NOTEBOOK_TEMPLATE.read_text())
     parameter_cells = [
-        cell for cell in notebook["cells"] if "parameters" in cell.get("metadata", {}).get("tags", [])
+        cell
+        for cell in notebook["cells"]
+        if "parameters" in cell.get("metadata", {}).get("tags", [])
     ]
     assert len(parameter_cells) == 1
     parameter_text = "".join(parameter_cells[0]["source"])
@@ -114,6 +126,30 @@ def test_customer_worker_returns_framework_child_result_not_readiness_evidence()
     assert "reconcile_full_replace" in source
 
 
+def test_business_path_extensions_share_runner_declared_warehouse_runtime():
+    driver = DRIVER_SOURCE.read_text()
+    observer = OBSERVER_SOURCE.read_text()
+    combined = driver + observer
+    assert "WAREHOUSE_DATABASE_URL" in driver
+    assert "WAREHOUSE_DATABASE_URL" in observer
+    assert "BUSINESS_PATH_DRIVER_RUNTIME_JSON" not in combined
+    assert "BUSINESS_PATH_OBSERVER_RUNTIME_JSON" not in combined
+    assert "ReleaseReadinessStatus" not in combined
+    assert "IntegrationEvidenceCheckResult" not in combined
+
+    pyproject = EXTENSION_PYPROJECT.read_text()
+    assert (
+        '"cert.business-path-observer" = '
+        '"fabric_customer_certification_extensions.business_observer:observe_business_path"'
+        in pyproject
+    )
+    assert (
+        '"cert.business-path-driver" = '
+        '"fabric_customer_certification_extensions.business_driver:drive_business_path"'
+        in pyproject
+    )
+
+
 def test_renderer_only_accepts_safe_non_secret_deployment_bindings(tmp_path):
     module = _renderer_module()
     content = module.render_pipeline_content(
@@ -161,3 +197,18 @@ def test_dedicated_warehouse_ddl_contains_required_certification_tables():
     ):
         assert table in ddl
     assert "DO NOT run this script against a shared or production Warehouse" in ddl
+
+
+def test_deployment_runbook_is_recoverable_and_does_not_invent_pipeline_semantics():
+    text = DEPLOY_RUNBOOK.read_text()
+    for name in EXACT_DYNAMIC_PARAMETERS:
+        assert name in text
+    assert "render_fabric_items.py notebook" in text
+    assert "render_fabric_items.py pipeline" in text
+    assert "warehouse-certification-fixtures.sql" in text
+    assert "allow_control_plane_migration=True" in text
+    assert "WAREHOUSE_DATABASE_URL" in text
+    assert "BUSINESS_PATH_DRIVER_RUNTIME_JSON" in text  # documented as removed/not required
+    assert "Completed" in text
+    assert "DatasetDispatchOutcome" in text
+    assert "fabric-data-framework==0.3.0" not in text  # deployment runbook is candidate-only
