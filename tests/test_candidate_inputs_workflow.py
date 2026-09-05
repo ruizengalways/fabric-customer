@@ -3,6 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CURRENT_CERTIFICATION_FRAMEWORK_SHA = "cb9f9be77a98a0a5aa8c5f85e0fa3d92697c60f0"
+CURRENT_CUSTOMER_DEPLOYER_SHA = "88d7c3b7b473ad84b5d96aa472293ae24c055c88"
 HISTORICAL_FIRST_FABRIC_SHA = "303683729c4915d78200d463a6def01c8de9eae6"
 HISTORICAL_FIRST_FABRIC_WHEEL_SHA = (
     "0638c95c19ebcc43ec4ec462b7f960a164209874223517e3f74b951264b0eaf6"
@@ -94,6 +95,14 @@ def test_current_status_is_recoverable_without_chat_history():
         CURRENT_CERTIFICATION_FRAMEWORK_SHA,
         "33961827610",
         "13c9c7696f9c657243af1133731bf58600cffb3a78f77bede606a1b00a6c2c79",
+        CURRENT_CUSTOMER_DEPLOYER_SHA,
+        "33963661173",
+        "33963661167",
+        "33963703737",
+        "33963703747",
+        "MERGED + MAIN CI PROVEN",
+        "deploy_fabric_items.py",
+        "certification_result = NOT_RUN",
         "fabric-data-framework==0.3.0",
         "candidate_status: not_frozen",
         "release_allowed: false",
@@ -102,6 +111,15 @@ def test_current_status_is_recoverable_without_chat_history():
         "DEPLOY_CERTIFICATION_FABRIC_ITEMS.md",
     ):
         assert token in status
+
+
+def test_current_status_keeps_actual_fabric_deployment_unclaimed():
+    status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
+    assert "repository_owned_certification_notebook_deployed = false / not yet evidenced" in status
+    assert "repository_owned_certification_pipeline_deployed = false / not yet evidenced" in status
+    assert "current_pr105_real_fabric_certification_executed = false" in status
+    assert "acquire an organization-approved Fabric API access token" in status
+    assert "run deploy_fabric_items.py once" in status
 
 
 def test_historical_first_company_fabric_evidence_remains_exact_and_old_byte_only():
@@ -132,6 +150,7 @@ def test_historical_first_company_fabric_evidence_remains_exact_and_old_byte_onl
     assert "release_authorized = false" in wrapper_text
     assert "fabric-data-framework==0.3.0" in wrapper_text
     assert "DEPLOY_CERTIFICATION_FABRIC_ITEMS.md" in wrapper_text
+    assert "deploy_fabric_items.py" in wrapper_text
 
     certification_text = certification_runbook.read_text()
     assert "Lane A — bounded company-Fabric Notebook validation" in certification_text
