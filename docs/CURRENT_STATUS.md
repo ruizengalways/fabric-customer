@@ -48,6 +48,28 @@ Do not change the Customer production dependency until immutable Framework `v0.4
 
 A bounded/manual/unified certification result cannot silently freeze/select a candidate and cannot publish a release. `UnifiedCertificationReport.release_authorized=false` remains structural.
 
+## Customer project / 100-table product baseline
+
+The certification work does not replace the normal reusable Customer-project contract. The repo still supports the product-grade one-repo domain model used by the 100-table Health example, including Full, SCD1, SCD2 and Debezium-style capture selections.
+
+The ordinary project workflow remains:
+
+```text
+fabric project-init
+-> source-controlled DatasetConfig / semantic selections
+-> fabric project-validate
+-> GitHub CI
+-> approved environment deployment
+```
+
+The `customer-ci` project compatibility lane is separately pinned to the exact Framework-next source SHA:
+
+```text
+FRAMEWORK_NEXT_SHA = 148e02e3fff7861f238296e7554815a6fd49dd0a
+```
+
+This SHA is part of the existing 100-table project/bootstrap contract and is independent from the 0.4 certification compatibility SHA documented below. Do not replace one with the other merely because both point at Framework development source.
+
 ## Current Framework substantive source baseline
 
 Framework PR #105 is the current substantive source baseline used by the Customer certification compatibility lane:
@@ -91,7 +113,7 @@ Because PR #105 changed Framework source, all earlier real-Fabric executions rem
 
 ## Current Customer main baseline
 
-Before the in-progress reusable Pipeline reference slice is merged, current Customer `main` is:
+Before the reusable Pipeline reference PR is merged, current Customer `main` is:
 
 ```text
 main SHA  5b063a6318c3cc510a69181a53a47266309b8c14
@@ -106,15 +128,16 @@ fabric-data-framework==0.3.0
 
 The certification-contract CI lane intentionally checks Customer certification source against current Framework 0.4 substantive source; this compatibility lane is separate from the released Customer production dependency.
 
-## Reusable certification Pipeline reference — current implementation slice
+## Reusable certification Pipeline reference — PR #21 validation slice
 
-Working branch:
+Working PR/branch:
 
 ```text
+Customer PR #21
 feat/certification-pipeline-reference
 ```
 
-This branch is intended to become the product-grade Customer reference for real Pipeline/business-path certification rather than asking an operator to build a random Pipeline by hand.
+This slice is the product-grade Customer reference for real Pipeline/business-path certification rather than asking an operator to build a random Pipeline by hand.
 
 Current repository-owned surface:
 
@@ -154,7 +177,7 @@ retry.idempotency
 reconciliation.fail_closed
 ```
 
-Business-path driver/observer now consume the same exact runtime binding:
+Business-path driver/observer consume the same exact runtime binding:
 
 ```text
 WAREHOUSE_DATABASE_URL
@@ -273,17 +296,15 @@ Never fault inject against a shared/PROD Warehouse.
 
 ## Next repository steps
 
-Finish the current Customer Pipeline reference slice in this order:
+Finish Customer PR #21 in this order:
 
 ```text
-1. complete tests + docs on feat/certification-pipeline-reference
-2. open Customer PR
-3. require customer-ci PASS
-4. require customer-certification-contract PASS against Framework cb9f9be7...
-5. squash merge
-6. require independent Customer main CI + certification-contract success
-7. update this recovery checkpoint to the final merged Customer SHA/CI
-8. update Framework docs/machine/STATE.md so PR #105 is current source and PR #99 is historical first-Fabric evidence
+1. require customer-ci PASS
+2. require customer-certification-contract PASS against Framework cb9f9be7...
+3. squash merge
+4. require independent Customer main CI + certification-contract success
+5. update this recovery checkpoint to the final merged Customer SHA/CI
+6. update Framework docs/machine/STATE.md so PR #105 is current source and PR #99 is historical first-Fabric evidence
 ```
 
 The final docs checkpoint must distinguish:
