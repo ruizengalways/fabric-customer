@@ -1,236 +1,142 @@
 # fabric-customer
 
-Reference Customer/domain repository for the Enterprise Microsoft Fabric Data Engineering Platform.
+Reference domain repository for the Enterprise Microsoft Fabric Data Engineering Platform.
 
-This repo owns Customer-specific WHAT: DatasetConfig, semantic capture selections, mappings, business DQ rules, execution-group choices, fixtures, non-secret deployment bindings, tests and certification inputs. Generic HOW remains in `fabric-data-framework`.
+This repo owns customer/domain **WHAT**: DatasetConfig, semantic capture selections, mappings, business DQ rules, execution-group policy, non-secret environment bindings, tests and certification inputs. Generic execution **HOW** belongs in `fabric-data-framework`.
 
-## Enterprise DEV / UAT / PROD topology
+## Start here
 
-DEV is a smaller instance of the production architecture, not a different architecture. The Customer enterprise reference uses the same logical component roles in DEV, UAT and PROD:
+For a new conversation or a new engineer, read only these first:
+
+1. `docs/CURRENT_STATUS.md` — current truth and exact next action.
+2. `docs/runbooks/BUILD_NEW_DOMAIN_PROJECT.md` — create/onboard a domain.
+3. `docs/runbooks/OPERATE_MULTI_TABLE_PIPELINES.md` — operate and recover pipelines.
+4. `docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md` — current real-Fabric certification path.
+
+Do not reconstruct current state from old PR numbers or Git history. Git history is history; `docs/CURRENT_STATUS.md` is the human recovery checkpoint.
+
+## Enterprise topology
+
+DEV, UAT and PROD use the same logical architecture:
 
 ```text
-Fabric SQL Database = Framework operational control plane
+Fabric SQL Database = Framework operational Control Plane
 Lakehouse / OneLake = Bronze / Silver / Gold business data + quarantine detail
 Fabric Warehouse    = optional SQL-first Gold / dimensional serving
 ```
 
-Canonical control-plane profile in all three stages:
+Canonical control-plane profile:
 
 ```text
-control_plane_profile = fabric_sql_database_v1
+fabric_sql_database_v1
 ```
 
 Do not use Lakehouse control tables in DEV and switch to SQL Database later. CI/CD promotes code, DatasetConfig, execution-group policy, DQ/reconciliation rules, Fabric item definitions and control-plane schema/migrations. Runtime rows, watermarks, credentials, business data and physical item UUIDs remain environment-local.
 
-`Bronze / Silver / Gold` describe analytical data maturity. `Lakehouse / Warehouse / SQL Database` describe workload engines. Warehouse is optional: Gold may remain in Lakehouse when SQL-first dimensional serving is not required.
+See `docs/runbooks/ENTERPRISE_ENVIRONMENT_TOPOLOGY.md`.
 
-Canonical runbook:
+## Framework version lanes
 
-```text
-docs/runbooks/ENTERPRISE_ENVIRONMENT_TOPOLOGY.md
-```
-
-## Framework lanes
-
-The **production/release dependency remains immutable**:
+Production stays pinned to the released dependency:
 
 ```text
 fabric-data-framework==0.3.0
 ```
 
-`pyproject.toml`, released-wheel CI and Customer release packaging continue to use published v0.3.0. Do not replace this with Framework `main` before immutable v0.4.0 exists and migration is explicitly approved.
+Do not change that pin until immutable Framework `v0.4.0` exists and release governance authorizes migration.
 
-The historical **framework-next project-contract lane** remains pinned to:
+The static framework-next project-contract lane remains pinned to:
 
 ```text
 148e02e3fff7861f238296e7554815a6fd49dd0a
 ```
 
-It proves `project-init` / `project-validate` compatibility for the normal Customer project and the 100-table Health fixture. It is static compatibility evidence only.
+It proves `project-init` / `project-validate` compatibility only. The current Framework 0.4 executable used for certification is recorded separately in `docs/CURRENT_STATUS.md`.
 
-The separate **0.4 certification-contract lane** tracks the current substantive Framework 0.4 executable baseline recorded in `docs/CURRENT_STATUS.md` and `.github/workflows/certification-contract.yml`.
-
-That lane validates product-level parent-Pipeline fault isolation, `FAIL_AT_END`, source-controlled execution-group policy, DQ/quarantine budgets, full quarantine payload retention, conservative recovery planning, the enterprise Fabric SQL Database control-plane topology contract, and the current Fabric-native Entra SQL runtime. The certification lane is still only a source/CI compatibility lane: it does not execute Fabric, create live PASS evidence, freeze a candidate, authorize release or change the v0.3.0 production dependency.
-
-## Normal Customer runtime model
-
-Current executable Customer vertical slice remains:
+## Normal domain workflow
 
 ```text
-crm.customer
-  -> WATERMARK(modified_at, customer_id)
-  -> normalized Bronze
-  -> Customer DQ / row quarantine
-  -> Customer mapping
-  -> Framework SCD2
-  -> reconciliation
-  -> target + watermark/state commit sequencing
+fabric-framework project-init <repo> --domain <domain>
+-> inventory sources
+-> author DatasetConfig / semantic selections / domain rules
+-> assign orchestration.execution_group
+-> fabric-framework project-validate <repo>
+-> GitHub PR + CI
+-> deploy to DEV
+-> validate and operate
+-> promote the same logical definitions to UAT and PROD with environment-local bindings
 ```
 
-Project source of truth:
+A `project-validate` PASS is static consistency, not real-Fabric certification.
 
-```text
-fabric-project.json
-config/datasets/crm.customer.json
-config/capture/semantic-selections.json
-```
+## 100-table enterprise reference
 
-A `project-validate` PASS is static project consistency, not live Fabric certification.
-
-## 100-table enterprise onboarding reference
-
-One domain repo intentionally contains mixed mechanisms:
+One Health-style domain repo intentionally models mixed ingestion/change patterns:
 
 ```text
 50  FULL      -> REPLACE
 20  WATERMARK -> SCD2
 20  WATERMARK -> SCD1
-10  CDC       -> UPSERT (Debezium/external CDC)
+10  CDC       -> UPSERT using Debezium / external CDC
 ```
 
-Repo boundaries follow ownership, security/compliance and release lifecycle, not FULL/WATERMARK/CDC or SCD1/SCD2 implementation choices. Operational grouping belongs in `orchestration.execution_group`.
+Repo boundaries follow business ownership, security/compliance and release lifecycle—not ingestion mechanism. Operational grouping belongs in `orchestration.execution_group`.
 
-The four operational groups are:
+Reference files:
 
 ```text
-health_full_refresh
-health_scd2
-health_scd1
-health_debezium
+examples/enterprise_100_table/
+examples/pipeline_development/
 ```
 
-The 10 Debezium rows explicitly model external CDC/checkpoint ownership. The 100-table fixture is onboarding/config scale proof, not a runtime performance benchmark.
+The 100-table fixture proves onboarding/configuration scale; it is not a performance benchmark.
 
-## Product Pipeline operations reference
+## Pipeline operating model
 
-Start here for normal multi-table Pipeline design and incidents:
-
-```text
-examples/pipeline_development/README.md
-docs/runbooks/OPERATE_MULTI_TABLE_PIPELINES.md
-```
-
-The forward-looking Framework 0.4 examples include source-controlled execution-group policies for all four Health groups:
+Framework 0.4 examples model product behavior where one failed dataset does not blindly abort independent work:
 
 ```text
-examples/pipeline_development/framework_0_4/execution-groups/
-  health_full_refresh.json
-  health_scd2.json
-  health_scd1.json
-  health_debezium.json
-```
-
-They demonstrate the intended product behavior:
-
-```text
-one table FAIL
+one dataset FAIL
 -> durable dataset error
 -> independent siblings continue
--> failed dependents BLOCKED
--> all runnable work reaches terminal state
--> parent Pipeline FAILED at end
+-> failed dependents become BLOCKED
+-> runnable work reaches terminal state
+-> parent Pipeline fails at end
 ```
 
-They also show Pipeline-level DQ/quarantine defaults plus per-table overrides. These files are **not production runtime inputs yet** because Customer production remains on Framework v0.3.0.
+Recovery is conservative: retry only explicit retryable failures, replay after DQ fixes, investigate reconciliation/unknown-commit cases before reprocessing, recover dependencies first, use bounded backfill for source gaps, and reserve full rebuild for authoritative reset cases.
 
-Recovery is intentionally conservative:
+See `docs/runbooks/OPERATE_MULTI_TABLE_PIPELINES.md`.
 
-```text
-explicit transient + retryable=true -> bounded RETRY
-DQ threshold -> fix data/rule then REPLAY
-reconciliation failure -> investigate before reprocess
-blocked dependency -> recover upstream first
-unknown commit -> reconcile before retry
-bounded source gap -> BACKFILL
-authoritative reset only -> FULL_REBUILD
-```
+## Framework 0.4 certification
 
-Whole-Pipeline blind retry is not the default repair strategy.
-
-## New domain bootstrap
-
-Normal flow:
-
-```text
-fabric-framework project-init <repo> --domain <domain>
--> add DatasetConfig / semantic selections / domain rules
--> assign execution_group
--> fabric-framework project-validate <repo>
--> GitHub CI
--> approved DEV deployment using the canonical enterprise topology
--> controlled operational validation
--> UAT promotion using the same logical topology
--> PROD promotion using the same logical topology
-```
-
-When Framework v0.4.0 eventually becomes an approved production dependency, execution-group policy belongs in the same source-controlled release identity rather than being silently edited in the Fabric UI.
-
-## Exact Framework 0.4 certification inputs
-
-Customer-owned certification source lives under:
+Customer-owned certification definitions live under:
 
 ```text
 certification/project/
 certification/extensions/
+certification/fabric_items/
 ```
 
-It contains representative FULL/REPLACE, WATERMARK/SCD1, WATERMARK/SCD2, retry/idempotency, reconciliation fail-closed, Copy, Spark and Warehouse inputs. Customer extensions provide bounded facts/mutations only; Framework remains the sole PASS authority.
-
-Manual exact-input producer:
+Default operator path is Fabric-native:
 
 ```text
-.github/workflows/candidate-business-path-inputs.yml
+Fabric REST auth = Azure CLI signed-in user
+SQL runtime auth = signed-in Fabric Notebook user (Microsoft Entra)
+Key Vault         = optional enterprise integration
 ```
 
-The bundle includes `INPUTS.json`, `release-manifest.json`, `runner-config.json`, exact certification project files and the extension wheel. This is an **input artifact**, not integration evidence or release readiness proof.
-
-Framework candidate wheel identity and Customer/domain release identity remain separate and must never be assumed equal.
-
-## Current live blockers
-
-Source intentionally remains fail-closed:
+Use:
 
 ```text
-control_plane_external_evidence_incomplete
-warehouse_real_fault_controller_not_configured
+docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md
+docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
 ```
 
-Replace these only with reviewed real enterprise evidence and an approved real provider/session fault-controller endpoint. Never manufacture synthetic PASS JSON.
+Repository-owned Notebook/Pipeline source being merged is not proof that company Fabric was mutated. Deployment evidence, real execution evidence, candidate freeze and release authorization are separate gates.
 
-No selected/frozen Framework 0.4 candidate exists, no strict live evidence bundle is complete, and release is not authorized.
+## Release boundary
 
-## CI proof model
+Framework 0.4 remains unreleased until strict evidence is complete. Do not manufacture PASS evidence, do not silently freeze a candidate, and do not replace the production `0.3.0` dependency from source/main.
 
-```text
-source-metadata-and-wheel
-  -> source validation + Customer wheel
-
-exact-framework-integration
-  -> immutable Framework v0.3.0 + Customer tests + release/deployment plan
-
-framework-next-project-contract
-  -> exact historical project-contract SHA + project-validate + 100-table static proof
-
-customer-certification-contract
-  -> exact current substantive Framework source compatibility
-  -> validates 0.4 execution-group policy examples
-  -> validates enterprise Fabric SQL Database topology and Fabric-native SQL auth contracts
-  -> builds typed certification inputs
-  -> asserts real-environment blockers remain fail-closed
-```
-
-These lanes are deliberately separate. None of the development lanes upgrades the production runtime dependency.
-
-## Structure / start here
-
-- `docs/CURRENT_STATUS.md` — exact current engineering/evidence checkpoint.
-- `docs/PROJECT_BLUEPRINT.md` — repository ownership and architecture.
-- `docs/runbooks/ENTERPRISE_ENVIRONMENT_TOPOLOGY.md` — canonical DEV/UAT/PROD storage and CI/CD topology.
-- `docs/runbooks/BUILD_NEW_DOMAIN_PROJECT.md` — create and validate a new domain.
-- `docs/runbooks/OPERATE_MULTI_TABLE_PIPELINES.md` — normal multi-table Pipeline operations and repair.
-- `docs/runbooks/CERTIFY_FRAMEWORK_0_4.md` — exact 0.4 certification preparation.
-- `docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md` — Fabric-native certification item deployment with Azure CLI user auth by default and optional Key Vault integration.
-- `examples/enterprise_100_table/README.md` — 100-table onboarding reference.
-- `examples/pipeline_development/README.md` — production-oriented Pipeline grouping/policy examples.
-
-Framework owns HOW. Domain repositories own WHAT.
+Current executable identity, deployment status, blockers and the exact next step are intentionally kept in one place: `docs/CURRENT_STATUS.md`.

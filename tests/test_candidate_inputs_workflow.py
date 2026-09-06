@@ -9,14 +9,6 @@ CURRENT_CERTIFICATION_FRAMEWORK_WHEEL_SHA = (
     "0d7d351548712db3293b00a3b8eb968387f573b542d8fe506c9436a1b9b0a834"
 )
 CURRENT_CERTIFICATION_FRAMEWORK_ARTIFACT_ID = "9982333832"
-CURRENT_CUSTOMER_DEPLOYER_SHA = "88d7c3b7b473ad84b5d96aa472293ae24c055c88"
-CURRENT_CUSTOMER_OPERATIONS_SHA = "1d70fe26baf3ceef1be7c0b0cd359f330316e0ee"
-CURRENT_CUSTOMER_MAIN_CI = "33969382068"
-CURRENT_CUSTOMER_MAIN_CERTIFICATION_CI = "33969382063"
-HISTORICAL_FIRST_FABRIC_SHA = "303683729c4915d78200d463a6def01c8de9eae6"
-HISTORICAL_FIRST_FABRIC_WHEEL_SHA = (
-    "0638c95c19ebcc43ec4ec462b7f960a164209874223517e3f74b951264b0eaf6"
-)
 
 
 def test_candidate_input_workflow_is_manual_exact_input_packaging_only():
@@ -103,107 +95,72 @@ def test_exact_business_path_plan_covers_five_required_gates():
     }
 
 
-def test_current_status_is_recoverable_without_chat_history():
+def test_current_status_is_recoverable_without_legacy_history():
     status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
     for token in (
-        "New-conversation recovery checkpoint",
+        "GitHub `main` is truth",
         CURRENT_CERTIFICATION_FRAMEWORK_SHA,
         CURRENT_CERTIFICATION_FRAMEWORK_MAIN_CI,
         CURRENT_CERTIFICATION_FRAMEWORK_WHEEL_SHA,
         CURRENT_CERTIFICATION_FRAMEWORK_ARTIFACT_ID,
-        CURRENT_CUSTOMER_DEPLOYER_SHA,
-        "33963661173",
-        "33963661167",
-        "33963703737",
-        "33963703747",
-        "merged substantive certification/deployment tooling baseline",
-        "deploy_fabric_items.py",
-        "certification_result = NOT_RUN",
         "fabric-data-framework==0.3.0",
         "candidate_status: not_frozen",
         "release_allowed: false",
-        "control_plane_external_evidence_incomplete",
-        "warehouse_real_fault_controller_not_configured",
-        "DEPLOY_CERTIFICATION_FABRIC_ITEMS.md",
-        "OPERATE_MULTI_TABLE_PIPELINES.md",
-        "ENTERPRISE_ENVIRONMENT_TOPOLOGY.md",
         "fabric_sql_database_v1",
         "Fabric SQL Database",
-        "Warehouse is optional",
+        "Lakehouse / OneLake",
+        "azure-cli",
+        "fabric-user",
+        "key_vault_required: false",
+        "DEPLOY_CERTIFICATION_FABRIC_ITEMS.md",
+        "TEST_FRAMEWORK_IN_COMPANY_FABRIC.md",
+        "OPERATE_MULTI_TABLE_PIPELINES.md",
+        "ENTERPRISE_ENVIRONMENT_TOPOLOGY.md",
     ):
         assert token in status
 
-
-def test_current_status_locks_merged_product_operations_baseline():
-    status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
-    for token in (
+    for legacy in (
         "Customer PR #25 is **MERGED + MAIN CI PROVEN**",
-        CURRENT_CUSTOMER_OPERATIONS_SHA,
-        "33969274525",
-        "33969274509",
-        CURRENT_CUSTOMER_MAIN_CI,
-        CURRENT_CUSTOMER_MAIN_CERTIFICATION_CI,
-        "health_full_refresh.json",
-        "health_scd2.json",
-        "health_scd1.json",
-        "health_debezium.json",
-        "FAIL_AT_END",
+        "303683729c4915d78200d463a6def01c8de9eae6",
+        "33381666892",
+        "CERTIFY_FRAMEWORK_0_4.md",
+        "merged substantive certification/deployment tooling baseline",
     ):
-        assert token in status
+        assert legacy not in status
 
 
 def test_current_status_keeps_actual_fabric_deployment_unclaimed():
     status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
-    assert "repository_owned_certification_notebook_deployed = false / not yet evidenced" in status
-    assert "repository_owned_certification_pipeline_deployed = false / not yet evidenced" in status
-    assert "current_pr112_real_fabric_certification_executed = false" in status
-    assert "organization-approved Fabric API access token" in status
-    assert "run deploy_fabric_items.py once" in status.lower()
+    assert "repository_owned_certification_notebook_deployed: false" in status
+    assert "repository_owned_certification_pipeline_deployed: false" in status
+    assert "current_framework_real_fabric_certification_executed: false" in status
+    assert "certification_result = NOT_RUN" in status
 
 
-def test_historical_first_company_fabric_evidence_remains_exact_and_old_byte_only():
-    status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
-    wrapper = ROOT / "docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md"
-    certification_runbook = ROOT / "docs/runbooks/CERTIFY_FRAMEWORK_0_4.md"
-
-    assert wrapper.is_file()
-    assert certification_runbook.is_file()
-    for token in (
-        HISTORICAL_FIRST_FABRIC_SHA,
-        "33381666892",
-        HISTORICAL_FIRST_FABRIC_WHEEL_SHA,
-        "historical",
-        "warehouse.commit",
-        "NOT_RUN",
-        "release authorized",
-        "false",
-    ):
-        assert token in status or token in wrapper.read_text()
-
-    wrapper_text = wrapper.read_text()
-    assert "unified real-Fabric certification is the default path" in wrapper_text
-    assert "from fabric_data_framework.certification import certify" in wrapper_text
-    assert "runtime_environment" in wrapper_text
-    assert "allow_live_mutations=True" in wrapper_text
-    assert "allow_control_plane_migration=True" in wrapper_text
-    assert "release_authorized = false" in wrapper_text
-    assert "fabric-data-framework==0.3.0" in wrapper_text
-    assert "DEPLOY_CERTIFICATION_FABRIC_ITEMS.md" in wrapper_text
-    assert "deploy_fabric_items.py" in wrapper_text
-
-    certification_text = certification_runbook.read_text()
-    assert "Lane A — bounded company-Fabric Notebook validation" in certification_text
-    assert "Lane B — full evidence-based release certification" in certification_text
-    assert "not the current Framework main code baseline" in certification_text
+def test_current_company_fabric_runbook_is_fabric_native_and_fail_closed():
+    runbook = (ROOT / "docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md").read_text()
+    assert CURRENT_CERTIFICATION_FRAMEWORK_SHA in runbook
+    assert CURRENT_CERTIFICATION_FRAMEWORK_WHEEL_SHA in runbook
+    assert "azure-cli" in runbook
+    assert "fabric-user" in runbook
+    assert "Key Vault is optional" in runbook
+    assert "from fabric_data_framework.certification import certify" in runbook
+    assert "stop" in runbook.lower()
+    assert "certification_result = NOT_RUN" in runbook
+    assert "fabric-data-framework==0.3.0" in runbook
+    assert "DEPLOY_CERTIFICATION_FABRIC_ITEMS.md" in runbook
+    assert "export FABRIC_ACCESS_TOKEN" not in runbook
+    assert "--key-vault-url" not in runbook
+    assert "CERTIFY_FRAMEWORK_0_4.md" not in runbook
 
 
 def test_current_status_keeps_strict_release_prerequisites_honest():
     status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
-    assert "seven" in status.lower() or "7" in status
     assert "control_plane_external_evidence_incomplete" in status
     assert "control_plane_external_evidence_not_review_bound" in status
     assert "warehouse_real_fault_controller_not_configured" in status
+    assert "known_strict_required_blockers: 15" in status
     assert "release_allowed: false" in status
     assert "candidate_status: not_frozen" in status
-    assert "release_authorized=false" in status or "release_authorized = false" in status
+    assert "release_authorized = false" in status
     assert "fabric-data-framework==0.3.0" in status
