@@ -40,13 +40,13 @@ fabric-data-framework==0.3.0
 
 `pyproject.toml`, released-wheel CI and Customer release packaging continue to use published v0.3.0. Do not replace this with Framework `main` before immutable v0.4.0 exists and migration is explicitly approved.
 
-The historical **framework-next project-contract lane** remains pinned to:
+The **framework-next project-contract lane** is pinned to the current Fabric-native Framework main baseline:
 
 ```text
-148e02e3fff7861f238296e7554815a6fd49dd0a
+17fbbd8ed2afb14771748a25d3e12d9bf63fe986
 ```
 
-It proves `project-init` / `project-validate` compatibility for the normal Customer project and the 100-table Health fixture. It is static compatibility evidence only.
+It proves `project-init` / `project-validate` compatibility for the normal Customer project and the 100-table Health fixture against the exact unreleased Framework source used by the current certification preparation. It is static compatibility evidence only and does not change the v0.3.0 production dependency.
 
 The separate **0.4 certification-contract lane** tracks the current substantive Framework 0.4 executable baseline recorded in `docs/CURRENT_STATUS.md` and `.github/workflows/certification-contract.yml`.
 
@@ -209,7 +209,7 @@ exact-framework-integration
   -> immutable Framework v0.3.0 + Customer tests + release/deployment plan
 
 framework-next-project-contract
-  -> exact historical project-contract SHA + project-validate + 100-table static proof
+  -> exact current Framework-next SHA + project-validate + 100-table static proof
 
 customer-certification-contract
   -> exact current substantive Framework source compatibility
@@ -229,6 +229,7 @@ These lanes are deliberately separate. None of the development lanes upgrades th
 - `docs/runbooks/BUILD_NEW_DOMAIN_PROJECT.md` — create and validate a new domain.
 - `docs/runbooks/OPERATE_MULTI_TABLE_PIPELINES.md` — normal multi-table Pipeline operations and repair.
 - `docs/runbooks/CERTIFY_FRAMEWORK_0_4.md` — exact 0.4 certification preparation.
+- `docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md` — Fabric-native certification item deployment with Azure CLI user auth by default and optional Key Vault integration.
 - `examples/enterprise_100_table/README.md` — 100-table onboarding reference.
 - `examples/pipeline_development/README.md` — production-oriented Pipeline grouping/policy examples.
 
