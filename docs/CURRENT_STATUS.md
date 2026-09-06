@@ -88,6 +88,14 @@ independent main certification      33998361592 SUCCESS
 
 It established Fabric SQL Database = operational Framework Control Plane, Lakehouse/OneLake = medallion business data + quarantine detail, and Warehouse = optional SQL-first Gold/dimensional serving.
 
+Historical PR #27 recovery assertion remains true:
+
+```text
+current_pr109_real_fabric_certification_executed = false
+```
+
+This line records the historical PR #109 state only; it does not make PR #109 current again.
+
 ## Customer candidate-input topology hardening — PR #29
 
 Customer PR #29 is **MERGED + MAIN CI PROVEN**:
@@ -100,7 +108,14 @@ independent main customer-ci        34001481213 SUCCESS
 independent main certification      34001481204 SUCCESS
 ```
 
-The Customer candidate-input lane exposes only `fabric_sql_database_v1`. Framework may support generic alternate relational backends, but the Customer canonical enterprise certification lane fails closed on profile drift.
+The Customer candidate-input lane exposes only `fabric_sql_database_v1`. Its source-of-truth producer and builder remain:
+
+```text
+.github/workflows/candidate-business-path-inputs.yml
+certification/build_candidate_inputs.py
+```
+
+Framework may support generic alternate relational backends, but the Customer canonical enterprise certification lane fails closed on profile drift. The historical PR #29 checkpoint also recorded `current_pr109_real_fabric_certification_executed = false`; that historical fact remains true.
 
 ## Customer project and 100-table product baseline
 
@@ -212,6 +227,8 @@ repository_owned_certification_pipeline_deployed = false / not yet evidenced
 current_pr112_real_fabric_certification_executed = false
 ```
 
+Run deploy_fabric_items.py once only against the intended isolated DEV/UAT workspace, then retain only its non-secret deployment result.
+
 ## Customer product Pipeline operations baseline — PR #25
 
 Customer PR #25 is **MERGED + MAIN CI PROVEN**:
@@ -248,7 +265,7 @@ independent main customer-ci        33963703737 SUCCESS
 independent main certification      33963703747 SUCCESS
 ```
 
-PR #31 is the current auth/deployment hardening on top of that tooling. Runbook: `docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md`. Use `deploy_fabric_items.py` once only against the intended isolated DEV/UAT workspace and retain only its non-secret deployment result.
+PR #31 is the current auth/deployment hardening on top of that tooling. Runbook: `docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md`.
 
 ## Historical first company-Fabric bounded result — PR #99 old bytes only
 
@@ -293,7 +310,7 @@ Use exact Framework PR #112 bytes and current Customer main after PR #31:
 1. use an isolated approved DEV certification workspace
 2. use/provision the dedicated DEV Fabric SQL Database as canonical Control Plane
 3. run az login with the approved operator identity
-4. run deploy_fabric_items.py --apply using default azure-cli + fabric-user auth
+4. run deploy_fabric_items.py once with --apply using default azure-cli + fabric-user auth
 5. pass only non-secret Control Plane/Warehouse server + database identities; Key Vault optional
 6. retain build/fabric-items/deployment-result.json; certification_result = NOT_RUN
 7. verify separate real item-read, Pipeline, Copy and Spark UUID bindings
