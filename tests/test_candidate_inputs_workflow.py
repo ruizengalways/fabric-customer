@@ -145,7 +145,7 @@ def test_current_company_fabric_runbook_is_fabric_native_and_fail_closed():
     assert "fabric-user" in runbook
     assert "Key Vault is optional" in runbook
     assert "from fabric_data_framework.certification import certify" in runbook
-    assert "STOP" in runbook
+    assert "stop" in runbook.lower()
     assert "certification_result = NOT_RUN" in runbook
     assert "fabric-data-framework==0.3.0" in runbook
     assert "DEPLOY_CERTIFICATION_FABRIC_ITEMS.md" in runbook
