@@ -16,6 +16,7 @@ Fabric SQL Database is the canonical Framework operational Control Plane
 Lakehouse/OneLake owns Bronze/Silver/Gold business data and quarantine detail
 Fabric Warehouse is optional SQL-first Gold/dimensional serving
 Customer enterprise topology/reference is merged + independent main-CI proven
+Customer candidate-input enterprise profile is fail-closed + independent main-CI proven
 normal multi-table Pipeline operations/recovery is a first-class product concern
 unified real-Fabric certification remains the default certification path
 reusable certification Pipeline/worker and DEV/UAT item deployer are merged + main-CI proven
@@ -105,7 +106,30 @@ Warehouse           = optional SQL-first Gold/dimensional serving
 
 It also moves `customer-certification-contract` to exact Framework PR #109 SHA `3bd3375b796531e5ca6c7e144e7f50e154cec29f` and directly validates the Framework enterprise profile contract. Production dependency remains `fabric-data-framework==0.3.0`.
 
-Documentation-only checkpoints after PR #27 do not become a new substantive Customer runtime baseline merely because their Git SHA changes.
+## Customer candidate-input topology hardening — PR #29
+
+Customer PR #29 is **MERGED + MAIN CI PROVEN**:
+
+```text
+PR                                  #29
+merge/main SHA                      1effd5fe283afeb5b960a87e64638f1674433580
+PR customer-ci                      34001442382 SUCCESS
+PR customer-certification-contract  34001442376 SUCCESS
+independent main customer-ci        34001481213 SUCCESS
+independent main certification      34001481204 SUCCESS
+```
+
+PR #29 closes the final profile-selection drift in the Customer candidate-input packaging lane. `candidate-business-path-inputs.yml` now exposes only `fabric_sql_database_v1`, and `certification/build_candidate_inputs.py` imports the Framework enterprise topology contract and fails closed if the Customer enterprise profile drifts.
+
+Framework can still describe/qualify other generic relational Control Plane backends. That generic capability does not change the Customer canonical enterprise lane: Customer DEV/UAT/PROD candidate-input bundles bind `fabric_sql_database_v1`.
+
+PR #29 does **not** change Customer production runtime, select/freeze a Framework candidate, authorize a 0.4 release, deploy Fabric items, or create live certification evidence. Production remains exactly:
+
+```text
+fabric-data-framework==0.3.0
+```
+
+Documentation-only checkpoints after PR #29 do not become a new substantive Customer runtime/certification baseline merely because their Git SHA changes.
 
 ## Customer project and 100-table product baseline
 
@@ -320,13 +344,13 @@ Never fabricate placeholders to clear them. A dedicated DEV Warehouse is not by 
 Use the exact current PR #109 Framework artifact unless executable source changes again:
 
 ```text
-1. use Customer PR #27 substantive topology baseline / current Customer main
+1. use current Customer main with PR #29 candidate-input topology hardening
 2. provision/use the dedicated DEV Fabric SQL Database as canonical Framework Control Plane
 3. obtain organization-approved Fabric API token for isolated DEV certification workspace
 4. run deploy_fabric_items.py once and retain non-secret Notebook/Pipeline UUID result
 5. prepare dedicated Warehouse fixture tables only when Warehouse certification is in scope/approved
 6. verify separate real item-read/Copy/Spark UUIDs
-7. build exact Customer candidate-input artifact against PR #109 wheel + exact Customer SHA
+7. build exact Customer candidate-input artifact against PR #109 wheel + exact Customer SHA; profile must be fabric_sql_database_v1
 8. upload exact Framework wheel/CANDIDATE/SHA256SUMS + customer-inputs
 9. run bounded certification first
 10. STOP on any real bounded FAIL
