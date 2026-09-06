@@ -42,11 +42,11 @@ on:
         required: true
         type: string
       control_plane_profile:
-        description: "Production-eligible control-plane SQL profile"
+        description: "Canonical enterprise Fabric control-plane SQL profile"
         required: true
         default: fabric_sql_database_v1
         type: choice
-        options: [fabric_sql_database_v1, azure_sql_database_v1]
+        options: [fabric_sql_database_v1]
 
 permissions:
   contents: read
