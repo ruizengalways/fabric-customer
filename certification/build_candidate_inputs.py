@@ -17,6 +17,10 @@ import shutil
 
 from fabric_data_framework.contracts.environment import EnvironmentName
 from fabric_data_framework.control_plane.certification import ControlPlaneExternalEvidence
+from fabric_data_framework.control_plane.enterprise import (
+    ENTERPRISE_FABRIC_CONTROL_PLANE_PROFILE_NAME,
+    assert_enterprise_fabric_control_plane_profile,
+)
 from fabric_data_framework.deployment.delivery import (
     artifact_sha256,
     build_release_manifest,
@@ -71,8 +75,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--spark-job-id", required=True)
     parser.add_argument(
         "--control-plane-profile",
-        choices=("fabric_sql_database_v1", "azure_sql_database_v1"),
+        choices=(ENTERPRISE_FABRIC_CONTROL_PLANE_PROFILE_NAME,),
         required=True,
+        help="Canonical Customer enterprise Fabric control-plane profile.",
     )
     return parser
 
@@ -93,6 +98,7 @@ def _require_identity(args: argparse.Namespace) -> None:
             f"certification extension wheel must be {_EXTENSION_WHEEL!r}; "
             f"observed={args.extension_wheel.name!r}"
         )
+    assert_enterprise_fabric_control_plane_profile(args.control_plane_profile)
 
 
 def _artifact_inputs(project_root: Path, extension_wheel: Path) -> dict[str, Path]:
