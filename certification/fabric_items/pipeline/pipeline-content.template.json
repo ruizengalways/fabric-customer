@@ -34,6 +34,11 @@
             "effective_config_hash": {"value": {"value": "@pipeline().parameters.effective_config_hash", "type": "Expression"}, "type": "string"},
             "execution_plan_hash": {"value": {"value": "@pipeline().parameters.execution_plan_hash", "type": "Expression"}, "type": "string"},
             "customer_inputs_root": {"value": "__CUSTOMER_INPUTS_ROOT__", "type": "string"},
+            "runtime_auth_mode": {"value": "__RUNTIME_AUTH_MODE__", "type": "string"},
+            "control_plane_server": {"value": "__CONTROL_PLANE_SERVER__", "type": "string"},
+            "control_plane_database": {"value": "__CONTROL_PLANE_DATABASE__", "type": "string"},
+            "warehouse_server": {"value": "__WAREHOUSE_SERVER__", "type": "string"},
+            "warehouse_database": {"value": "__WAREHOUSE_DATABASE__", "type": "string"},
             "key_vault_url": {"value": "__KEY_VAULT_URL__", "type": "string"},
             "control_plane_secret_name": {"value": "__CONTROL_PLANE_SECRET_NAME__", "type": "string"},
             "warehouse_secret_name": {"value": "__WAREHOUSE_SECRET_NAME__", "type": "string"}
