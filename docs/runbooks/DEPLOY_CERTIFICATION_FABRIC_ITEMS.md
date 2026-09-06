@@ -2,7 +2,19 @@
 
 Audience: a data engineer preparing an isolated company Fabric DEV/UAT workspace for exact Framework certification.
 
-This runbook exists so a new engineer does **not** build an arbitrary Pipeline by hand. The repository owns a deterministic worker Notebook, reusable Data Pipeline template, fail-closed deployer, render-only fallback, Warehouse fixture DDL and exact Customer certification configuration.
+This runbook is written for the common enterprise case where the data engineering team has Fabric workspace permissions but **does not** have Azure subscription/resource-group/Key Vault administration rights.
+
+The default path is now:
+
+```text
+az login user identity
+-> Fabric REST API
+-> repository-owned certification Notebook + Data Pipeline
+-> Fabric Notebook signed-in Entra identity
+-> Fabric SQL Database / Warehouse
+```
+
+Azure Key Vault remains an optional enterprise integration lane; it is no longer a prerequisite for the normal Fabric-native certification path.
 
 ## 1. Safety boundary
 
@@ -19,19 +31,19 @@ It refuses `PROD`.
 
 Never run the fixture DDL, business-path reset/mutation logic, Warehouse fault drill or session termination against a shared/production Warehouse.
 
-Do not commit or pass on a command line:
+Never commit, paste into Notebook source, include as a CLI argument, or retain in evidence:
 
 ```text
-SQL connection strings
 Fabric access-token values
-passwords
+SQL passwords
+client secrets
 Key Vault secret values
 signed URLs
 ```
 
-The deployer accepts only non-secret workspace bindings plus a credential-free Key Vault URL and secret **names**. The Fabric API token is read from an environment variable and is never written to `deployment-result.json`.
+Fabric SQL server names, database names, workspace UUIDs and item UUIDs are non-secret deployment identity and may be retained.
 
-Creating/updating Fabric items is **not** certification. A successful deployment result deliberately records:
+Creating/updating Fabric items is **not** certification. A successful deployment deliberately records:
 
 ```text
 certification_result = NOT_RUN
@@ -53,9 +65,9 @@ certification/project/config/certification/pipeline-worker.json
 certification/extensions/src/fabric_customer_certification_extensions/pipeline_worker.py
 ```
 
-The Pipeline is reusable across the representative business paths. It is not one Pipeline per table.
+The Pipeline is reusable across representative business paths. It is not one Pipeline per table.
 
-The remote child contract has exactly seven Framework-owned dynamic parameters:
+The remote child contract still has exactly seven Framework-owned dynamic parameters:
 
 ```text
 framework_pipeline_run_id
@@ -67,68 +79,130 @@ effective_config_hash
 execution_plan_hash
 ```
 
-Do not rename them or add aliases. The Framework parent uses them to prove that provider completion and the durable Framework outcome belong to the same exact dataset execution.
+Runtime authentication/binding parameters are deployment settings, not additional Framework correlation parameters.
 
-## 3. Prerequisites
+## 3. First prove your Fabric REST API access
 
-Before deployment, have these values available:
+On the workstation/jumpbox where the Customer repo is cloned:
+
+```powershell
+az login
+```
+
+If the corporate account has Fabric access but no Azure subscription:
+
+```powershell
+az login --allow-no-subscriptions
+```
+
+Read-only smoke test:
+
+```powershell
+az rest --method get `
+  --url "https://api.fabric.microsoft.com/v1/workspaces?roles=Admin" `
+  --resource "https://api.fabric.microsoft.com"
+```
+
+Then list the target workspace items:
+
+```powershell
+$workspaceId = "<CERTIFICATION_WORKSPACE_UUID>"
+az rest --method get `
+  --url "https://api.fabric.microsoft.com/v1/workspaces/$workspaceId/items" `
+  --resource "https://api.fabric.microsoft.com"
+```
+
+A temporary write-permission smoke test may create an empty Notebook using an `@body.json` request and delete it afterwards. Do not use a real certification item name for the smoke test.
+
+You do **not** need to print the token. The deployer default `--auth-mode azure-cli` calls `az account get-access-token` internally and captures the value only in process memory.
+
+If an automated environment already supplies an approved short-lived token, the optional legacy API-auth lane remains:
+
+```text
+FABRIC_ACCESS_TOKEN
+--auth-mode env-token
+```
+
+## 4. Fabric-native prerequisites — default lane
+
+Have these non-secret values:
 
 ```text
 certification environment: DEV or UAT
 certification workspace UUID
-Key Vault HTTPS URL
-Key Vault secret name containing the Control Plane database URL
-Key Vault secret name containing the certification Warehouse database URL
-approved Microsoft Fabric API access token
+Control Plane Fabric SQL server hostname
+Control Plane database name
+certification Warehouse SQL server hostname
+certification Warehouse database name
 ```
 
-The token must have the organization-approved permissions/role required to list and create/update Notebook/Data Pipeline items in the target workspace. Acquire it through your normal corporate identity/credential process.
-
-Do **not** paste the token into this repository, a Notebook cell, shell history as a CLI argument, PR text, retained evidence or chat. Put it only in the runtime environment used for the deployment command.
-
-The deployed worker Notebook must later execute in an environment where the exact Framework wheel/customer extension bundle used for certification is available according to the approved Fabric package/environment setup.
-
-## 4. Preferred path — one-command create or update
-
-Set the token in the local runtime environment. Example shell syntax:
-
-```bash
-export FABRIC_ACCESS_TOKEN='<approved runtime token>'
-```
-
-Then run from the Customer repository root:
-
-```bash
-python certification/fabric_items/deploy_fabric_items.py \
-  --apply \
-  --environment DEV \
-  --workspace-id <CERTIFICATION_WORKSPACE_UUID> \
-  --key-vault-url https://<approved-vault>.vault.azure.net/ \
-  --control-plane-secret-name <CONTROL_PLANE_URL_SECRET_NAME> \
-  --warehouse-secret-name <WAREHOUSE_URL_SECRET_NAME>
-```
-
-`--apply` is mandatory because this command mutates the target workspace.
-
-The deployer performs this exact sequence:
+Examples of acceptable server values are plain hostnames only:
 
 ```text
-validate DEV/UAT + workspace UUID + safe deployment bindings
+<id>.database.fabric.microsoft.com
+<id>.datawarehouse.fabric.microsoft.com
+```
+
+Do not pass a SQLAlchemy URL, JDBC URL, password, bearer token, query string or connection-string fragment in a `--*-server` argument.
+
+The Fabric Notebook runtime must have:
+
+```text
+pyodbc
+Microsoft ODBC Driver 18 or newer for SQL Server
+notebookutils.credentials
+```
+
+The exact Framework candidate provides the token-aware SQLAlchemy adapter. At connection time it requests a fresh Microsoft Entra SQL token for the SQL resource and injects it into the ODBC connection. The generated `CONTROL_PLANE_DATABASE_URL` and `WAREHOUSE_DATABASE_URL` values contain endpoint/database/driver metadata only; no token or password is embedded.
+
+Warehouse administrator/session-termination authority is deliberately **not** inherited from normal Fabric user authentication. The real ambiguous-COMMIT/session-control drill remains separately gated.
+
+## 5. Preferred deployment — Azure CLI + Fabric user identity
+
+From the Customer repository root, PowerShell example:
+
+```powershell
+python certification/fabric_items/deploy_fabric_items.py `
+  --apply `
+  --environment DEV `
+  --workspace-id <CERTIFICATION_WORKSPACE_UUID> `
+  --control-plane-server <CONTROL_PLANE_FABRIC_SQL_HOSTNAME> `
+  --control-plane-database <CONTROL_PLANE_DATABASE_NAME> `
+  --warehouse-server <WAREHOUSE_SQL_HOSTNAME> `
+  --warehouse-database <WAREHOUSE_DATABASE_NAME>
+```
+
+The defaults are intentionally:
+
+```text
+--auth-mode azure-cli
+--runtime-auth-mode fabric-user
+```
+
+So no `FABRIC_ACCESS_TOKEN` environment variable and no Key Vault arguments are required for the normal interactive data-engineer path.
+
+`--apply` is mandatory because the command mutates the target Fabric workspace.
+
+The deployer performs:
+
+```text
+validate DEV/UAT + workspace UUID + runtime binding mode
+-> obtain Fabric API token from current az login session
 -> list Notebook items by type
 -> require zero or one exact display-name match
 -> create Notebook or update its definition
--> obtain the actual Notebook item UUID
+-> obtain actual Notebook item UUID
 -> render Pipeline against that exact Notebook UUID
 -> list DataPipeline items by type
 -> require zero or one exact display-name match
 -> create Data Pipeline or update its definition
--> wait for Fabric long-running operations when required
+-> poll Fabric long-running operations when required
 -> write non-secret deployment-result.json
 ```
 
-Exact duplicate display names fail closed. The tool never guesses which item to overwrite.
+Exact duplicate display names fail closed. The deployer never guesses which item to overwrite.
 
-Expected output file:
+Expected output:
 
 ```text
 build/fabric-items/deployment-result.json
@@ -141,32 +215,73 @@ Representative shape:
   "schema_version": 1,
   "environment": "DEV",
   "workspace_id": "<workspace-uuid>",
+  "runtime_auth_mode": "fabric-user",
   "notebook": {
     "id": "<notebook-uuid>",
     "display_name": "framework-certification-worker",
-    "action": "created-or-updated",
+    "action": "created",
     "definition_sha256": "<sha256>"
   },
   "pipeline": {
     "id": "<pipeline-uuid>",
     "display_name": "framework-certification-child",
-    "action": "created-or-updated",
+    "action": "created",
     "definition_sha256": "<sha256>"
   },
+  "customer_inputs_root": "/lakehouse/default/Files/framework_cert/customer-inputs",
   "contains_secret_values": false,
   "certification_result": "NOT_RUN"
 }
 ```
 
-The actual `action` value is `created` or `updated`.
+The actual action is `created` or `updated`.
 
-**Stop condition:** if the command exits non-zero, reports duplicate items, an invalid binding, a Fabric API error, or a failed/timed-out long-running operation, stop. Do not manually edit the result file to invent item UUIDs.
+**Stop condition:** if the command exits non-zero, reports duplicate names, cannot obtain a Fabric token, rejects a SQL binding, receives a Fabric API error, or a long-running operation fails/times out, stop. Never edit `deployment-result.json` by hand to invent IDs or PASS state.
 
-After success, remove the token from the shell/runtime environment according to your organization policy.
+## 6. Optional enterprise API token lane
 
-## 5. What the deployer does and does not retain
+For non-interactive automation where your organization deliberately supplies a token through a protected runtime environment:
 
-The deployment result may retain these non-secret anchors:
+```bash
+export FABRIC_ACCESS_TOKEN='<approved runtime token>'
+python certification/fabric_items/deploy_fabric_items.py \
+  --apply \
+  --auth-mode env-token \
+  --runtime-auth-mode fabric-user \
+  --environment DEV \
+  --workspace-id <CERTIFICATION_WORKSPACE_UUID> \
+  --control-plane-server <CONTROL_PLANE_FABRIC_SQL_HOSTNAME> \
+  --control-plane-database <CONTROL_PLANE_DATABASE_NAME> \
+  --warehouse-server <WAREHOUSE_SQL_HOSTNAME> \
+  --warehouse-database <WAREHOUSE_DATABASE_NAME>
+```
+
+Never put the token in the command line itself.
+
+## 7. Optional Key Vault runtime lane
+
+Use this only where the organization intentionally gives the runtime access to an approved Key Vault containing complete SQLAlchemy database URLs.
+
+```bash
+export FABRIC_ACCESS_TOKEN='<approved runtime token>'
+python certification/fabric_items/deploy_fabric_items.py \
+  --apply \
+  --auth-mode env-token \
+  --runtime-auth-mode key-vault \
+  --environment DEV \
+  --workspace-id <CERTIFICATION_WORKSPACE_UUID> \
+  --key-vault-url https://<approved-vault>.vault.azure.net/ \
+  --control-plane-secret-name <CONTROL_PLANE_URL_SECRET_NAME> \
+  --warehouse-secret-name <WAREHOUSE_URL_SECRET_NAME>
+```
+
+Only the Key Vault URL and secret **names** enter the Fabric definition. Secret values remain runtime-only.
+
+Key Vault is an enhancement lane, not a prerequisite for a team that only has Fabric workspace rights.
+
+## 8. What the deployer retains
+
+Allowed non-secret anchors:
 
 ```text
 DEV/UAT environment
@@ -177,23 +292,24 @@ exact display names
 rendered-definition SHA256 fingerprints
 create/update action
 customer-inputs conventional path
+runtime_auth_mode
 ```
 
-It does **not** retain:
+Never retained:
 
 ```text
 Fabric access token
-Control Plane database URL
-Warehouse database URL
-Key Vault secret values
-certification PASS/FAIL claims
+Microsoft Entra SQL token
+SQL password
+Key Vault secret value
+certification PASS/FAIL claim
 ```
 
-The Key Vault URL and secret names are embedded in the Pipeline definition because the worker needs those non-secret references at runtime; the result file itself does not copy them back out.
+For `fabric-user`, the Pipeline definition contains the non-secret Fabric SQL server/database identity. For `key-vault`, it contains the non-secret vault URL + secret names.
 
-## 6. Render-only/manual fallback
+## 9. Render-only/manual fallback
 
-Use this fallback only when organizational policy does not permit the repository deployer to call Fabric item APIs and another approved deployment mechanism must consume payload files.
+Use only when another approved deployment mechanism must consume payload files.
 
 Render the Notebook payload:
 
@@ -203,82 +319,89 @@ python certification/fabric_items/render_fabric_items.py notebook \
   --output build/fabric-items/notebook-create.json
 ```
 
-Deploy that payload using the approved mechanism and record the actual Notebook item UUID. Then render the Pipeline payload:
+After that mechanism returns the real Notebook UUID, render the default Fabric-native Pipeline:
 
 ```bash
 python certification/fabric_items/render_fabric_items.py pipeline \
   --display-name framework-certification-child \
   --workspace-id <CERTIFICATION_WORKSPACE_UUID> \
   --notebook-id <WORKER_NOTEBOOK_UUID> \
-  --key-vault-url https://<approved-vault>.vault.azure.net/ \
-  --control-plane-secret-name <CONTROL_PLANE_URL_SECRET_NAME> \
-  --warehouse-secret-name <WAREHOUSE_URL_SECRET_NAME> \
+  --runtime-auth-mode fabric-user \
+  --control-plane-server <CONTROL_PLANE_FABRIC_SQL_HOSTNAME> \
+  --control-plane-database <CONTROL_PLANE_DATABASE_NAME> \
+  --warehouse-server <WAREHOUSE_SQL_HOSTNAME> \
+  --warehouse-database <WAREHOUSE_DATABASE_NAME> \
   --output build/fabric-items/pipeline-create.json
 ```
 
-Deploy the resulting Pipeline definition and record the actual Pipeline UUID.
+The renderer validates UUIDs, server/database identity, Key Vault references when selected, and unresolved placeholders. Do not patch around validation failure.
 
-The renderer rejects malformed UUIDs, credential-bearing Key Vault URLs, unsafe secret names and unresolved placeholders. Do not patch around a validation failure.
+Manual deployment still produces `NOT_RUN`, not certification PASS.
 
-Manual fallback has the same semantic boundary as the deployer: item creation/update does not produce a certification PASS.
+## 10. Runtime SQL preflight in Fabric
 
-## 7. Prepare the dedicated certification Warehouse fixtures
+Before bounded certification, the worker Notebook should prove the runtime can see an ODBC 18+ driver and can request a SQL token. Do not print the token.
 
-Open:
+Safe diagnostic example:
+
+```python
+import pyodbc
+from notebookutils import credentials
+
+print([name for name in pyodbc.drivers() if "ODBC Driver" in name and "SQL Server" in name])
+token = credentials.getToken("https://database.windows.net/")
+assert isinstance(token, str) and len(token) > 100
+print("Fabric SQL token acquired")
+del token
+```
+
+The exact Framework runtime adapter synthesizes `CONTROL_PLANE_DATABASE_URL` and `WAREHOUSE_DATABASE_URL` internally so existing SQLAlchemy-based Control Plane/Warehouse certification code remains compatible.
+
+If the token call or ODBC driver check fails, the Fabric-native SQL lane is BLOCKED for that environment. Do not fall back to a pasted password.
+
+## 11. Prepare the dedicated certification Warehouse fixtures
+
+Run only against the dedicated DEV/UAT certification Warehouse:
 
 ```text
 certification/fabric_items/sql/warehouse-certification-fixtures.sql
 ```
 
-Run it only against the dedicated certification DEV/UAT Warehouse after confirming the target database identity.
+It provisions bounded fixture tables for Pipeline control, progress/checkpoint state, FULL -> REPLACE, WATERMARK -> SCD1/SCD2, retry/idempotency, reconciliation fail-closed, Copy landing and Spark landing.
 
-The script provisions the bounded tables used by:
+Stop if you cannot prove the SQL target is the dedicated certification Warehouse.
 
-```text
-Pipeline control
-progress/checkpoint state
-FULL -> REPLACE
-WATERMARK -> SCD1
-WATERMARK -> SCD2 current/history
-retry/idempotency
-reconciliation fail-closed
-Copy landing
-Spark landing
-```
+## 12. Control Plane SQL Database
 
-Stop immediately if you cannot prove the SQL connection targets the dedicated certification Warehouse.
+Use a dedicated certification Fabric SQL Database for the Control Plane.
 
-The script is fixture provisioning only. It is not a substitute for the Framework-approved normal Warehouse COMMIT or ambiguous-COMMIT evidence runners.
-
-## 8. Control Plane SQL Database
-
-Use a dedicated certification SQL Database for the Control Plane.
-
-Do not create DatasetConfig rows manually. The Framework one-call first-time bootstrap owns the correct sequence after bounded exact-wheel PASS:
+Do not create DatasetConfig rows manually. The Framework first-time certification bootstrap owns schema/materialization after exact-wheel bounded PASS. The explicit first-time mutation boundary remains:
 
 ```python
-report = certify(
-    spark=spark,
-    runtime_environment={
-        "CONTROL_PLANE_DATABASE_URL": control_plane_database_url,
-        "WAREHOUSE_DATABASE_URL": warehouse_database_url,
-    },
-    allow_live_mutations=True,
-    allow_control_plane_migration=True,
-)
+allow_control_plane_migration=True
 ```
 
-That explicit first-time path applies the current Control Plane schema **and** idempotently materializes the exact Customer semantic metadata. A schema-only database is not enough for the durable Pipeline child because the Framework verifies deployed DatasetConfig hashes.
+Normal reruns keep it false.
 
-Normal reruns keep `allow_control_plane_migration=False`.
+The Fabric-native runtime is equivalent to a runtime mapping containing:
 
-## 9. Copy and Spark certification items remain separate
+```text
+FABRIC_SQL_AUTH_MODE=fabric-user
+CONTROL_PLANE_SQL_SERVER=<non-secret server>
+CONTROL_PLANE_SQL_DATABASE=<non-secret database>
+WAREHOUSE_SQL_SERVER=<non-secret server>
+WAREHOUSE_SQL_DATABASE=<non-secret database>
+```
 
-The exact Customer bundle also binds configured Copy and Spark item UUIDs used by the approved capture runners.
+The adapter then exposes compatible non-secret token-aware `CONTROL_PLANE_DATABASE_URL` and `WAREHOUSE_DATABASE_URL` values in-process.
 
-The Notebook/Pipeline deployer does **not** create or invent these bindings. They remain independent physical items.
+The optional Key Vault lane still resolves the historical secret-bearing URL values directly.
 
-The Customer input builder requires:
+## 13. Copy and Spark item identities remain separate
+
+The Notebook/Pipeline deployer does not invent Copy/Spark bindings.
+
+The exact Customer input builder still requires real values for:
 
 ```text
 workspace-id
@@ -289,23 +412,19 @@ spark-job-id
 control-plane-profile
 ```
 
-Use the real Pipeline UUID from `deployment-result.json` for `pipeline-item-id`. Use separately verified real UUIDs for item-read/Copy/Spark. Never substitute the Pipeline UUID for all item types.
+Use the real Pipeline UUID from `deployment-result.json` for `pipeline-item-id`. Do not reuse it as the Copy or Spark item ID.
 
-## 10. Produce the exact Customer certification input artifact
-
-Use the existing `candidate-business-path-inputs` workflow / `certification/build_candidate_inputs.py` path for the exact Framework candidate and exact Customer source SHA intended for the run.
-
-The retained bundle must contain:
+The canonical Customer enterprise control-plane profile remains:
 
 ```text
-INPUTS.json
-runner-config.json
-release-manifest.json
-project/
-dist/
+fabric_sql_database_v1
 ```
 
-and bind:
+## 14. Exact Customer candidate input artifact
+
+Generate through the existing `candidate-business-path-inputs` / `certification/build_candidate_inputs.py` path only after the exact current Framework executable identity is known.
+
+The bundle binds:
 
 ```text
 exact Framework candidate Git SHA
@@ -316,11 +435,9 @@ actual certification Fabric item UUIDs
 exact Customer extension wheel SHA256
 ```
 
-Do not edit the retained bundle after generation to swap item IDs or hashes.
+Do not edit retained bundle identities after generation.
 
-## 11. Upload/extract the exact bundle into the certification Lakehouse
-
-Expected layout:
+Expected Lakehouse layout remains:
 
 ```text
 /lakehouse/default/Files/framework_cert/
@@ -335,77 +452,45 @@ Expected layout:
     dist/
 ```
 
-The Framework public API validates exact candidate SHA/wheel/version identity before using Customer inputs.
+## 15. Business-path runtime contract
 
-## 12. Runtime secret resolution
+There is no separate `BUSINESS_PATH_DRIVER_RUNTIME_JSON` or `BUSINESS_PATH_OBSERVER_RUNTIME_JSON` credential channel in the current reference implementation.
 
-The reusable Pipeline worker resolves SQL URLs at execution time from the configured Key Vault URL + secret names.
+Business-path driver/observer still consume the exact runner-declared `WAREHOUSE_DATABASE_URL`; in Fabric-user mode that URL is non-secret and token-aware, and a fresh Entra token is injected at physical connection time.
 
-The top-level unified certification call can use equivalent approved runtime values:
+## 16. Pipeline proof behavior
 
-```python
-runtime_environment = {
-    "CONTROL_PLANE_DATABASE_URL": control_plane_database_url,
-    "WAREHOUSE_DATABASE_URL": warehouse_database_url,
-}
-```
+A provider run reaching Fabric `Completed` is not semantic success.
 
-The Framework temporarily exposes only exact runner-declared runtime variable names to Customer/domain extension entry points during the call, then restores the previous process environment.
-
-There is no separate `BUSINESS_PATH_DRIVER_RUNTIME_JSON` or `BUSINESS_PATH_OBSERVER_RUNTIME_JSON` secret channel in the current reference implementation. Business-path driver/observer use the same exact `WAREHOUSE_DATABASE_URL` runtime binding as the approved Warehouse/capture surfaces.
-
-## 13. Expected Pipeline proof behavior
-
-A provider run reaching Fabric `Completed` is not enough.
-
-The worker executes:
+The proof chain remains:
 
 ```text
 seven exact parameters
 -> Framework validates deployed DatasetConfig/effective hash/plan hash
--> Customer physical executor performs the bounded fixture mutation
+-> Customer physical executor performs bounded fixture mutation
 -> Framework persists exact DatasetRunAudit
 -> Framework reads exact DatasetDispatchOutcome
 ```
 
-Therefore certification fails closed when:
-
-```text
-Pipeline Completed but no exact durable outcome exists
-Pipeline used the wrong DatasetConfig hash
-Pipeline used a different execution plan hash
-business-path expected a retry/failure but outcome semantics differ
-```
+Therefore the run fails closed when provider `Completed` cannot be correlated to the exact durable `DatasetDispatchOutcome`.
 
 Customer code cannot self-declare release-readiness PASS.
 
-## 14. What this deployment still does not solve
+## 17. Still-blocked enterprise evidence
 
-Automated Notebook/Pipeline deployment reduces operator setup work, but it does not manufacture enterprise release evidence.
-
-Current strict blockers remain real until independently satisfied:
+Making Key Vault optional does not manufacture enterprise evidence. Strict blockers remain until real evidence exists, including:
 
 ```text
 control_plane_external_evidence_incomplete
-control_plane_external_evidence_not_review_bound  # once refs exist but review binding is wrong/missing
+control_plane_external_evidence_not_review_bound
 warehouse_real_fault_controller_not_configured
 ```
 
-It also does not provision/approve:
+The default Fabric user identity also does not authorize Warehouse session termination. That remains a separately reviewed/admin-controlled capability.
 
-```text
-seven Control Plane enterprise evidence records
-Warehouse ambiguous-COMMIT fault controller
-Warehouse administrator session-termination authorization
-Copy/Spark item identities
-exact selected-candidate Customer input bundle
-```
+## 18. New-conversation recovery
 
-Do not configure placeholders merely to clear a blocker.
-
-## 15. New-conversation recovery
-
-After a context reset, read current GitHub `main` in this order:
+After context reset, read current GitHub `main` in this order:
 
 ```text
 1. docs/CURRENT_STATUS.md
@@ -419,4 +504,4 @@ After a context reset, read current GitHub `main` in this order:
 9. fabric-data-framework/docs/human/ONE_CALL_CERTIFICATION_RUNTIME.md
 ```
 
-Then verify the exact Framework substantive executable source/main-CI artifact identity and exact Customer source SHA before continuing. Never recover executable candidate identity from chat memory alone.
+Then verify the exact current Framework substantive executable source/main-CI artifact identity and exact Customer source SHA before continuing. Never recover executable candidate identity from chat memory alone.
