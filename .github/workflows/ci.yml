@@ -9,7 +9,10 @@ permissions:
   contents: read
 
 env:
-  FRAMEWORK_NEXT_SHA: 17fbbd8ed2afb14771748a25d3e12d9bf63fe986
+  # Historical project-contract compatibility lane. Keep this exact SHA stable;
+  # current 0.4 certification bytes are tracked independently in
+  # certification-contract.yml.
+  FRAMEWORK_NEXT_SHA: 148e02e3fff7861f238296e7554815a6fd49dd0a
 
 jobs:
   source-contract:
