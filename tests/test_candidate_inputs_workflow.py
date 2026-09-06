@@ -2,13 +2,13 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CURRENT_CERTIFICATION_FRAMEWORK_SHA = "3bd3375b796531e5ca6c7e144e7f50e154cec29f"
-WORKFLOW_CERTIFICATION_FRAMEWORK_SHA = "17fbbd8ed2afb14771748a25d3e12d9bf63fe986"
-CURRENT_CERTIFICATION_FRAMEWORK_MAIN_CI = "33997925998"
+CURRENT_CERTIFICATION_FRAMEWORK_SHA = "17fbbd8ed2afb14771748a25d3e12d9bf63fe986"
+WORKFLOW_CERTIFICATION_FRAMEWORK_SHA = CURRENT_CERTIFICATION_FRAMEWORK_SHA
+CURRENT_CERTIFICATION_FRAMEWORK_MAIN_CI = "34010629765"
 CURRENT_CERTIFICATION_FRAMEWORK_WHEEL_SHA = (
-    "fe9adb12d9804dd146957dfc84925b18330edd0c189e5f713867e8e7e9478178"
+    "0d7d351548712db3293b00a3b8eb968387f573b542d8fe506c9436a1b9b0a834"
 )
-CURRENT_CERTIFICATION_FRAMEWORK_ARTIFACT_ID = "9978610894"
+CURRENT_CERTIFICATION_FRAMEWORK_ARTIFACT_ID = "9982333832"
 CURRENT_CUSTOMER_DEPLOYER_SHA = "88d7c3b7b473ad84b5d96aa472293ae24c055c88"
 CURRENT_CUSTOMER_OPERATIONS_SHA = "1d70fe26baf3ceef1be7c0b0cd359f330316e0ee"
 CURRENT_CUSTOMER_MAIN_CI = "33969382068"
@@ -156,7 +156,7 @@ def test_current_status_keeps_actual_fabric_deployment_unclaimed():
     status = (ROOT / "docs/CURRENT_STATUS.md").read_text()
     assert "repository_owned_certification_notebook_deployed = false / not yet evidenced" in status
     assert "repository_owned_certification_pipeline_deployed = false / not yet evidenced" in status
-    assert "current_pr109_real_fabric_certification_executed = false" in status
+    assert "current_pr112_real_fabric_certification_executed = false" in status
     assert "organization-approved Fabric API access token" in status
     assert "run deploy_fabric_items.py once" in status.lower()
 
