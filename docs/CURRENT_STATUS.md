@@ -44,8 +44,8 @@ default_auth:
 real_fabric_state:
   certification_notebook_source_merged: true
   certification_pipeline_source_merged: true
-  certification_notebook_deployed_evidence: false
-  certification_pipeline_deployed_evidence: false
+  repository_owned_certification_notebook_deployed: false
+  repository_owned_certification_pipeline_deployed: false
   current_framework_real_fabric_certification_executed: false
 ```
 
@@ -104,6 +104,8 @@ Canonical operator docs:
 ```text
 docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md
 docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
+docs/runbooks/OPERATE_MULTI_TABLE_PIPELINES.md
+docs/runbooks/ENTERPRISE_ENVIRONMENT_TOPOLOGY.md
 ```
 
 Default lane requires Fabric permissions, not Azure Key Vault administration:
@@ -116,17 +118,28 @@ SQL runtime auth = fabric-user
 
 Warehouse administrator/session-control authority is separate and must never be inferred from ordinary Fabric user access.
 
-## Current blockers that must remain honest
+Successful Fabric-item deployment writes `deployment-result.json` with `certification_result = NOT_RUN`; deployment is not certification.
 
-At minimum the strict release path still lacks real/review-bound enterprise evidence and a real approved Warehouse fault controller. Therefore:
+## Current strict blockers
+
+The current fail-closed blockers include:
 
 ```text
-candidate_status = not_frozen
-release_allowed = false
-strict_release_ready = false
+control_plane_external_evidence_incomplete
+control_plane_external_evidence_not_review_bound
+warehouse_real_fault_controller_not_configured
 ```
 
-A deployment success is not certification PASS. A bounded certification PASS is not a candidate freeze. A manual/admin record is not a substitute for strict evidence-based release readiness.
+Therefore:
+
+```text
+candidate_status: not_frozen
+release_allowed: false
+strict_release_ready: false
+release_authorized = false
+```
+
+A bounded certification PASS is not a candidate freeze. A manual/admin record is not a substitute for strict evidence-based release readiness.
 
 ## Normal customer-project baseline
 
