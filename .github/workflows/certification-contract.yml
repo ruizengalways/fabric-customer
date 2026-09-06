@@ -9,13 +9,13 @@ permissions:
   contents: read
 
 env:
-  # Current Framework substantive source baseline after PR #109. It owns the durable
+  # Current Framework substantive source baseline after PR #112. It owns the durable
   # Fabric Pipeline child, one-call runtime/Control Plane bootstrap, fail-at-end parent
-  # aggregation, execution-group policy, DQ/quarantine budgets, conservative recovery
-  # planning, and the canonical enterprise Fabric SQL Database control-plane topology.
+  # aggregation, execution-group policy, DQ/quarantine budgets, conservative recovery,
+  # canonical enterprise Fabric SQL Database topology, and Fabric-native Entra SQL runtime.
   # This is a source/CI compatibility lane only; Customer production remains pinned to
   # immutable v0.3.0 until Framework v0.4.0 is released and approved.
-  CERTIFICATION_FRAMEWORK_SHA: 3bd3375b796531e5ca6c7e144e7f50e154cec29f
+  CERTIFICATION_FRAMEWORK_SHA: 17fbbd8ed2afb14771748a25d3e12d9bf63fe986
 
 jobs:
   certification-contract:
@@ -78,6 +78,27 @@ jobs:
           dataset_only_hash = config_bundle_hash(datasets)
           with_group_policy_hash = config_bundle_hash(datasets, policies)
           assert dataset_only_hash != with_group_policy_hash
+          PY
+
+      - name: Validate Fabric-native SQL auth contract
+        run: |
+          python - <<'PY'
+          from fabric_data_framework.adapters.fabric.sql_auth import (
+              FABRIC_SQL_AUTH_MODE_USER,
+              FABRIC_SQL_TOKEN_AUDIENCE,
+              prepare_fabric_user_sql_runtime,
+          )
+
+          assert FABRIC_SQL_AUTH_MODE_USER == "fabric-user"
+          assert FABRIC_SQL_TOKEN_AUDIENCE == "https://database.windows.net/"
+          runtime = prepare_fabric_user_sql_runtime({
+              "FABRIC_SQL_AUTH_MODE": "fabric-user",
+              "CONTROL_PLANE_SQL_SERVER": "example.database.fabric.microsoft.com",
+              "CONTROL_PLANE_SQL_DATABASE": "framework_control",
+          })
+          assert "CONTROL_PLANE_DATABASE_URL" in runtime
+          assert "password" not in runtime["CONTROL_PLANE_DATABASE_URL"].lower()
+          assert "token" not in runtime["CONTROL_PLANE_DATABASE_URL"].lower()
           PY
 
       - name: Build bounded certification extension wheel
