@@ -40,17 +40,17 @@ fabric-data-framework==0.3.0
 
 `pyproject.toml`, released-wheel CI and Customer release packaging continue to use published v0.3.0. Do not replace this with Framework `main` before immutable v0.4.0 exists and migration is explicitly approved.
 
-The **framework-next project-contract lane** is pinned to the current Fabric-native Framework main baseline:
+The historical **framework-next project-contract lane** remains pinned to:
 
 ```text
-17fbbd8ed2afb14771748a25d3e12d9bf63fe986
+148e02e3fff7861f238296e7554815a6fd49dd0a
 ```
 
-It proves `project-init` / `project-validate` compatibility for the normal Customer project and the 100-table Health fixture against the exact unreleased Framework source used by the current certification preparation. It is static compatibility evidence only and does not change the v0.3.0 production dependency.
+It proves `project-init` / `project-validate` compatibility for the normal Customer project and the 100-table Health fixture. It is static compatibility evidence only.
 
 The separate **0.4 certification-contract lane** tracks the current substantive Framework 0.4 executable baseline recorded in `docs/CURRENT_STATUS.md` and `.github/workflows/certification-contract.yml`.
 
-That lane validates product-level parent-Pipeline fault isolation, `FAIL_AT_END`, source-controlled execution-group policy, DQ/quarantine budgets, full quarantine payload retention, conservative recovery planning and the enterprise Fabric SQL Database control-plane topology contract. The certification lane is still only a source/CI compatibility lane: it does not execute Fabric, create live PASS evidence, freeze a candidate, authorize release or change the v0.3.0 production dependency.
+That lane validates product-level parent-Pipeline fault isolation, `FAIL_AT_END`, source-controlled execution-group policy, DQ/quarantine budgets, full quarantine payload retention, conservative recovery planning, the enterprise Fabric SQL Database control-plane topology contract, and the current Fabric-native Entra SQL runtime. The certification lane is still only a source/CI compatibility lane: it does not execute Fabric, create live PASS evidence, freeze a candidate, authorize release or change the v0.3.0 production dependency.
 
 ## Normal Customer runtime model
 
@@ -209,12 +209,12 @@ exact-framework-integration
   -> immutable Framework v0.3.0 + Customer tests + release/deployment plan
 
 framework-next-project-contract
-  -> exact current Framework-next SHA + project-validate + 100-table static proof
+  -> exact historical project-contract SHA + project-validate + 100-table static proof
 
 customer-certification-contract
   -> exact current substantive Framework source compatibility
   -> validates 0.4 execution-group policy examples
-  -> validates enterprise Fabric SQL Database topology contract
+  -> validates enterprise Fabric SQL Database topology and Fabric-native SQL auth contracts
   -> builds typed certification inputs
   -> asserts real-environment blockers remain fail-closed
 ```
