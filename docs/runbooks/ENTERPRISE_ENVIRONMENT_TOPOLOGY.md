@@ -39,6 +39,18 @@ quarantine batch metadata/reference
 
 Never promote DEV runtime rows or watermarks to UAT/PROD. CI/CD promotes the SQL schema/migrations and logical definitions; each stage starts/maintains its own runtime state.
 
+### Candidate certification input invariant
+
+The Customer `candidate-business-path-inputs` workflow and `certification/build_candidate_inputs.py` are part of this canonical enterprise lane. They must fail closed if a different control-plane profile is requested.
+
+Framework may support additional relational backend profiles for generic certification, but that does not change the Customer enterprise topology. A Customer certification input bundle for DEV, UAT or PROD must therefore bind exactly:
+
+```text
+control_plane_profile = fabric_sql_database_v1
+```
+
+Do not use an alternate profile merely because the generic Framework registry can describe it. If the Customer reference topology changes in the future, change the architecture contract, workflow, builder, tests and runbooks together before producing new certification inputs.
+
 ## Medallion data plane
 
 Bronze/Silver/Gold are data maturity layers, not names of database products.
@@ -139,6 +151,7 @@ Before onboarding business tables, confirm:
 [ ] control-plane schema migration is source controlled
 [ ] environment bindings are non-secret/source-controlled by logical name where possible
 [ ] secrets and physical IDs are resolved at deployment/runtime
+[ ] candidate certification inputs bind fabric_sql_database_v1
 [ ] CI/CD never copies DEV runtime state to UAT/PROD
 ```
 
