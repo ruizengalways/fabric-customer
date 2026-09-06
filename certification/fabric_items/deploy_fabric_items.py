@@ -2,8 +2,10 @@
 
 This deployer is intentionally narrow:
 - only DEV/UAT certification workspaces are accepted;
-- the Fabric access token is read from an environment variable and never retained;
-- SQL URLs are never accepted here; only Key Vault URL + secret names enter definitions;
+- Fabric API auth defaults to the current ``az login`` user and may alternatively read
+  an approved access token from an environment variable;
+- Fabric-native SQL runtime bindings contain only non-secret server/database identity;
+- the existing Key Vault secret-name lane remains optional for enterprise environments;
 - exact display-name duplicates fail closed instead of guessing an item;
 - Microsoft Fabric long-running operations are polled to a terminal state.
 """
@@ -16,6 +18,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import subprocess
 import time
 from typing import Any, Callable, Mapping
 from urllib.error import HTTPError, URLError
@@ -26,18 +29,25 @@ from uuid import UUID
 try:
     from render_fabric_items import (
         DEFAULT_INPUTS_ROOT,
+        RUNTIME_AUTH_FABRIC_USER,
+        RUNTIME_AUTH_KEY_VAULT,
         render_notebook_payload,
         render_pipeline_create_payload,
     )
 except ModuleNotFoundError:  # pragma: no cover - package-style import fallback
     from .render_fabric_items import (
         DEFAULT_INPUTS_ROOT,
+        RUNTIME_AUTH_FABRIC_USER,
+        RUNTIME_AUTH_KEY_VAULT,
         render_notebook_payload,
         render_pipeline_create_payload,
     )
 
 
 API_ROOT = "https://api.fabric.microsoft.com/v1"
+FABRIC_API_RESOURCE = "https://api.fabric.microsoft.com"
+API_AUTH_AZURE_CLI = "azure-cli"
+API_AUTH_ENV_TOKEN = "env-token"
 DEFAULT_ACCESS_TOKEN_ENV_VAR = "FABRIC_ACCESS_TOKEN"
 DEFAULT_NOTEBOOK_NAME = "framework-certification-worker"
 DEFAULT_PIPELINE_NAME = "framework-certification-child"
@@ -93,6 +103,41 @@ def _error_summary(body: object | None) -> str:
         if message:
             return str(message)
     return "Fabric API request failed"
+
+
+def _azure_cli_access_token() -> str:
+    """Use the current interactive Azure CLI session without printing the token."""
+
+    command = [
+        "az",
+        "account",
+        "get-access-token",
+        "--resource",
+        FABRIC_API_RESOURCE,
+        "--query",
+        "accessToken",
+        "-o",
+        "tsv",
+    ]
+    try:
+        completed = subprocess.run(
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        raise FabricDeploymentError(
+            "Azure CLI was not found; install az and run az login, or use --auth-mode env-token"
+        ) from exc
+    except subprocess.CalledProcessError as exc:
+        raise FabricDeploymentError(
+            "Azure CLI could not obtain a Fabric API token; run az login (or az login --allow-no-subscriptions)"
+        ) from exc
+    token = completed.stdout.strip()
+    if not token or "\n" in token or "\r" in token:
+        raise FabricDeploymentError("Azure CLI returned an empty or malformed Fabric API token")
+    return token
 
 
 class FabricApiClient:
@@ -339,9 +384,14 @@ def deploy_certification_items(
     *,
     environment: str,
     workspace_id: str,
-    key_vault_url: str,
-    control_plane_secret_name: str,
-    warehouse_secret_name: str,
+    key_vault_url: str | None = None,
+    control_plane_secret_name: str | None = None,
+    warehouse_secret_name: str | None = None,
+    control_plane_server: str | None = None,
+    control_plane_database: str | None = None,
+    warehouse_server: str | None = None,
+    warehouse_database: str | None = None,
+    runtime_auth_mode: str = RUNTIME_AUTH_KEY_VAULT,
     notebook_display_name: str = DEFAULT_NOTEBOOK_NAME,
     pipeline_display_name: str = DEFAULT_PIPELINE_NAME,
     customer_inputs_root: str = DEFAULT_INPUTS_ROOT,
@@ -372,9 +422,14 @@ def deploy_certification_items(
         display_name=pipeline_display_name,
         workspace_id=workspace,
         notebook_id=notebook_id,
+        runtime_auth_mode=runtime_auth_mode,
         key_vault_url=key_vault_url,
         control_plane_secret_name=control_plane_secret_name,
         warehouse_secret_name=warehouse_secret_name,
+        control_plane_server=control_plane_server,
+        control_plane_database=control_plane_database,
+        warehouse_server=warehouse_server,
+        warehouse_database=warehouse_database,
         customer_inputs_root=customer_inputs_root,
     )
     existing_pipeline = client.find_exact_item(
@@ -398,6 +453,7 @@ def deploy_certification_items(
         "schema_version": 1,
         "environment": environment,
         "workspace_id": workspace,
+        "runtime_auth_mode": runtime_auth_mode,
         "notebook": {
             "id": notebook_id,
             "display_name": notebook_display_name,
@@ -423,9 +479,25 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--apply", action="store_true", help="Required explicit mutation authorization.")
     parser.add_argument("--environment", required=True, choices=("DEV", "UAT"))
     parser.add_argument("--workspace-id", required=True)
-    parser.add_argument("--key-vault-url", required=True)
-    parser.add_argument("--control-plane-secret-name", required=True)
-    parser.add_argument("--warehouse-secret-name", required=True)
+    parser.add_argument(
+        "--auth-mode",
+        choices=(API_AUTH_AZURE_CLI, API_AUTH_ENV_TOKEN),
+        default=API_AUTH_AZURE_CLI,
+        help="Fabric REST API authentication. azure-cli uses the current az login session.",
+    )
+    parser.add_argument(
+        "--runtime-auth-mode",
+        choices=(RUNTIME_AUTH_FABRIC_USER, RUNTIME_AUTH_KEY_VAULT),
+        default=RUNTIME_AUTH_FABRIC_USER,
+        help="SQL runtime authentication inside the certification Notebook.",
+    )
+    parser.add_argument("--control-plane-server")
+    parser.add_argument("--control-plane-database")
+    parser.add_argument("--warehouse-server")
+    parser.add_argument("--warehouse-database")
+    parser.add_argument("--key-vault-url")
+    parser.add_argument("--control-plane-secret-name")
+    parser.add_argument("--warehouse-secret-name")
     parser.add_argument("--notebook-display-name", default=DEFAULT_NOTEBOOK_NAME)
     parser.add_argument("--pipeline-display-name", default=DEFAULT_PIPELINE_NAME)
     parser.add_argument("--customer-inputs-root", default=DEFAULT_INPUTS_ROOT)
@@ -446,24 +518,37 @@ def main() -> int:
         parser.error("--apply is required; deployment mutates the target Fabric workspace")
     if args.lro_timeout_seconds < 1:
         parser.error("--lro-timeout-seconds must be positive")
-    token = os.environ.get(args.access_token_env_var)
-    if not token:
-        parser.error(
-            f"environment variable {args.access_token_env_var} must contain an approved Fabric API access token"
-        )
 
-    client = FabricApiClient(token, lro_timeout_seconds=args.lro_timeout_seconds)
-    result = deploy_certification_items(
-        client,
-        environment=args.environment,
-        workspace_id=args.workspace_id,
-        key_vault_url=args.key_vault_url,
-        control_plane_secret_name=args.control_plane_secret_name,
-        warehouse_secret_name=args.warehouse_secret_name,
-        notebook_display_name=args.notebook_display_name,
-        pipeline_display_name=args.pipeline_display_name,
-        customer_inputs_root=args.customer_inputs_root,
-    )
+    try:
+        if args.auth_mode == API_AUTH_AZURE_CLI:
+            token = _azure_cli_access_token()
+        else:
+            token = os.environ.get(args.access_token_env_var, "").strip()
+            if not token:
+                raise FabricDeploymentError(
+                    f"environment variable {args.access_token_env_var} must contain an approved Fabric API access token"
+                )
+
+        client = FabricApiClient(token, lro_timeout_seconds=args.lro_timeout_seconds)
+        result = deploy_certification_items(
+            client,
+            environment=args.environment,
+            workspace_id=args.workspace_id,
+            runtime_auth_mode=args.runtime_auth_mode,
+            key_vault_url=args.key_vault_url,
+            control_plane_secret_name=args.control_plane_secret_name,
+            warehouse_secret_name=args.warehouse_secret_name,
+            control_plane_server=args.control_plane_server,
+            control_plane_database=args.control_plane_database,
+            warehouse_server=args.warehouse_server,
+            warehouse_database=args.warehouse_database,
+            notebook_display_name=args.notebook_display_name,
+            pipeline_display_name=args.pipeline_display_name,
+            customer_inputs_root=args.customer_inputs_root,
+        )
+    except (FabricDeploymentError, ValueError) as exc:
+        parser.error(str(exc))
+
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(
@@ -471,6 +556,7 @@ def main() -> int:
             {
                 "output": str(args.output),
                 "workspace_id": result["workspace_id"],
+                "runtime_auth_mode": result["runtime_auth_mode"],
                 "notebook": result["notebook"],
                 "pipeline": result["pipeline"],
                 "certification_result": "NOT_RUN",

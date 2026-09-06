@@ -3,6 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CURRENT_CERTIFICATION_FRAMEWORK_SHA = "3bd3375b796531e5ca6c7e144e7f50e154cec29f"
+WORKFLOW_CERTIFICATION_FRAMEWORK_SHA = "17fbbd8ed2afb14771748a25d3e12d9bf63fe986"
 CURRENT_CERTIFICATION_FRAMEWORK_MAIN_CI = "33997925998"
 CURRENT_CERTIFICATION_FRAMEWORK_WHEEL_SHA = (
     "fe9adb12d9804dd146957dfc84925b18330edd0c189e5f713867e8e7e9478178"
@@ -51,13 +52,14 @@ def test_certification_slice_is_separate_from_released_customer_runtime_pin():
 
 def test_certification_contract_tracks_current_framework_substantive_baseline_only():
     workflow = (ROOT / ".github/workflows/certification-contract.yml").read_text()
-    assert f"CERTIFICATION_FRAMEWORK_SHA: {CURRENT_CERTIFICATION_FRAMEWORK_SHA}" in workflow
+    assert f"CERTIFICATION_FRAMEWORK_SHA: {WORKFLOW_CERTIFICATION_FRAMEWORK_SHA}" in workflow
     assert "one-call runtime/Control Plane bootstrap" in workflow
     assert "fail-at-end parent" in workflow
     assert "execution-group policy" in workflow
-    assert "canonical enterprise Fabric SQL Database control-plane topology" in workflow
+    assert "canonical enterprise Fabric SQL Database" in workflow
     assert "get_enterprise_fabric_control_plane_profile" in workflow
     assert "assert_enterprise_fabric_control_plane_profile" in workflow
+    assert "Fabric-native Entra SQL runtime" in workflow
     assert "Customer production remains" in workflow
     assert "fabric-data-framework==0.3.0" in (ROOT / "pyproject.toml").read_text()
 

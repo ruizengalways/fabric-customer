@@ -50,7 +50,7 @@ It proves `project-init` / `project-validate` compatibility for the normal Custo
 
 The separate **0.4 certification-contract lane** tracks the current substantive Framework 0.4 executable baseline recorded in `docs/CURRENT_STATUS.md` and `.github/workflows/certification-contract.yml`.
 
-That lane validates product-level parent-Pipeline fault isolation, `FAIL_AT_END`, source-controlled execution-group policy, DQ/quarantine budgets, full quarantine payload retention, conservative recovery planning and the enterprise Fabric SQL Database control-plane topology contract. The certification lane is still only a source/CI compatibility lane: it does not execute Fabric, create live PASS evidence, freeze a candidate, authorize release or change the v0.3.0 production dependency.
+That lane validates product-level parent-Pipeline fault isolation, `FAIL_AT_END`, source-controlled execution-group policy, DQ/quarantine budgets, full quarantine payload retention, conservative recovery planning, the enterprise Fabric SQL Database control-plane topology contract, and the current Fabric-native Entra SQL runtime. The certification lane is still only a source/CI compatibility lane: it does not execute Fabric, create live PASS evidence, freeze a candidate, authorize release or change the v0.3.0 production dependency.
 
 ## Normal Customer runtime model
 
@@ -214,7 +214,7 @@ framework-next-project-contract
 customer-certification-contract
   -> exact current substantive Framework source compatibility
   -> validates 0.4 execution-group policy examples
-  -> validates enterprise Fabric SQL Database topology contract
+  -> validates enterprise Fabric SQL Database topology and Fabric-native SQL auth contracts
   -> builds typed certification inputs
   -> asserts real-environment blockers remain fail-closed
 ```
@@ -229,6 +229,7 @@ These lanes are deliberately separate. None of the development lanes upgrades th
 - `docs/runbooks/BUILD_NEW_DOMAIN_PROJECT.md` — create and validate a new domain.
 - `docs/runbooks/OPERATE_MULTI_TABLE_PIPELINES.md` — normal multi-table Pipeline operations and repair.
 - `docs/runbooks/CERTIFY_FRAMEWORK_0_4.md` — exact 0.4 certification preparation.
+- `docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md` — Fabric-native certification item deployment with Azure CLI user auth by default and optional Key Vault integration.
 - `examples/enterprise_100_table/README.md` — 100-table onboarding reference.
 - `examples/pipeline_development/README.md` — production-oriented Pipeline grouping/policy examples.
 
