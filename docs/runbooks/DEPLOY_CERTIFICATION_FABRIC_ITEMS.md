@@ -244,8 +244,60 @@ The runner verifies/installs the exact staged Framework wheel and uses the exact
 
 Follow `TEST_FRAMEWORK_IN_COMPANY_FABRIC.md` for bounded-first execution and explicit live-stage authorization.
 
-## 9. Low-level/manual fallback
+## 9. Low-level contract and troubleshooting reference
 
-`certification/fabric_items/deploy_fabric_items.py` remains available for troubleshooting and external deployment systems. It is not the normal one-click operator interface.
+The one-click command is the preferred operator path, but recovery must still expose the exact lower-level contract so an engineer can diagnose a rendered Notebook/Pipeline without inventing semantics.
+
+The child Pipeline forwards exactly these Framework-owned dynamic values to the worker Notebook:
+
+```text
+framework_pipeline_run_id
+framework_dataset_run_id
+dataset_id
+run_mode
+attempt
+effective_config_hash
+execution_plan_hash
+```
+
+These values are runtime correlation/plan inputs. They are **not** additional environment configuration fields.
+
+The low-level deployment entry point remains:
+
+```text
+certification/fabric_items/deploy_fabric_items.py
+```
+
+and still requires explicit `--apply`. Its safe troubleshooting outputs include:
+
+```text
+build/fabric-items/deployment-result.json
+certification_result = NOT_RUN
+```
+
+The optional automation auth lane can read `FABRIC_ACCESS_TOKEN`; the default human path remains Azure CLI and does not require printing/copying that token.
+
+To inspect definitions without deployment, the underlying renderer remains available:
+
+```powershell
+python certification/fabric_items/render_fabric_items.py notebook --output build/worker-notebook.json
+python certification/fabric_items/render_fabric_items.py pipeline --workspace-id <WORKSPACE_UUID> --notebook-id <NOTEBOOK_UUID> --control-plane-server <SERVER> --control-plane-database <DATABASE> --warehouse-server <SERVER> --warehouse-database <DATABASE> --output build/child-pipeline.json
+```
+
+The dedicated Warehouse DDL remains:
+
+```text
+certification/fabric_items/sql/warehouse-certification-fixtures.sql
+```
+
+First-time Control Plane migration remains an explicit certification authorization boundary represented by `allow_control_plane_migration=True` only when that later live stage is deliberately approved. Bootstrap schema preparation does not convert later conformance execution into automatic authorization.
+
+The exact runner continues to use `WAREHOUSE_DATABASE_URL` internally for Framework/Customer SQL-based business-path components. `BUSINESS_PATH_DRIVER_RUNTIME_JSON` is a removed/legacy runtime variable and is **not required** by the current business-path driver.
+
+A Fabric provider state of `Completed` is only provider execution state. It is not enough to create a Framework PASS: the Framework must still validate the returned evidence and persist the corresponding `DatasetDispatchOutcome`/capture result under the exact release identity.
+
+## 10. Manual fallback boundary
+
+`deploy_fabric_items.py` and the renderer above are troubleshooting/external-system interfaces, not the normal one-click human workflow. They must not be used to bypass environment config, exact artifact identity, OneLake staging, SQL bootstrap, or the READY/NOT_RUN boundary.
 
 Key Vault remains an optional enterprise integration. The default path is current `az login` for Fabric REST/local SQL bootstrap and the signed-in Fabric Notebook Entra identity for Notebook SQL runtime.
