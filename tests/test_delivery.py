@@ -25,9 +25,10 @@ def test_same_customer_release_is_planned_for_dev_uat_prod_with_local_bindings()
         generated_at=datetime(2026, 8, 28, tzinfo=timezone.utc),
     )
 
+    environment_dir = ROOT / "config" / "environments"
     plans = [
-        plan_deployment(manifest, load_environment_bindings(ROOT / "deploy" / name))
-        for name in ("bindings.dev.json", "bindings.uat.json", "bindings.prod.json")
+        plan_deployment(manifest, load_environment_bindings(environment_dir / name))
+        for name in ("dev.json", "uat.json", "prod.json")
     ]
 
     assert {plan.release_hash for plan in plans} == {manifest.bundle.release_hash}
