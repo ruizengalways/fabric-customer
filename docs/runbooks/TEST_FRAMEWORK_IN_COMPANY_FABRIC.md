@@ -1,10 +1,8 @@
 # Runbook — Test the current Framework in company Fabric
 
-Audience: a data engineer validating the current Framework 0.4 executable in an isolated company Fabric DEV workspace.
+Audience: data engineers validating the current Framework 0.4 executable in an isolated company Fabric DEV workspace.
 
-This is the **current** real-Fabric operator path. It intentionally excludes superseded manual/PR-history recovery procedures.
-
-## 1. Hard boundary
+## Hard boundary
 
 Production remains:
 
@@ -12,213 +10,165 @@ Production remains:
 fabric-data-framework==0.3.0
 ```
 
-Framework 0.4 is development/unreleased. This runbook does not freeze a candidate or authorize release.
-
-For every run:
-
-- use an isolated or explicitly approved DEV workspace;
-- use the exact Framework artifact recorded in `docs/CURRENT_STATUS.md`;
-- stop on any real bounded FAIL;
-- never invent missing UUIDs, evidence or PASS state;
-- never paste tokens, passwords or secret values into Git, Notebook source, Pipeline JSON, retained evidence or chat.
-
-## 2. Exact Framework bytes
-
-Current executable identity:
+Current certification executable:
 
 ```text
 Framework SHA       17fbbd8ed2afb14771748a25d3e12d9bf63fe986
 Framework CI run    34010629765
 artifact ID         9982333832
-artifact name       framework-wheel-17fbbd8ed2afb14771748a25d3e12d9bf63fe986
 wheel               fabric_data_framework-0.4.0-py3-none-any.whl
 wheel SHA256        0d7d351548712db3293b00a3b8eb968387f573b542d8fe506c9436a1b9b0a834
 ```
 
-Keep the artifact's `CANDIDATE.json`, `SHA256SUMS` and wheel together. Verify the wheel bytes before semantic testing.
+The machine-readable pin is `certification/framework-executable.json`. It selects exact bytes for testing; it does not freeze a candidate or authorize a release.
 
-If Framework executable source changes, do not reuse this identity. Re-read `fabric-data-framework/docs/machine/STATE.md` and resolve the new exact artifact first.
+Framework 0.4 is development/unreleased. Stop on every real FAIL. Never invent UUIDs, evidence, or PASS state.
 
-## 3. Default authentication model
+## 1. Prepare the environment once
 
-The ordinary data-engineer path is Fabric-native:
+See `DEPLOY_CERTIFICATION_FABRIC_ITEMS.md`.
 
-```text
-Fabric REST API -> current Azure CLI signed-in user
-Fabric SQL DB   -> signed-in Fabric Notebook user via Microsoft Entra
-Warehouse       -> signed-in Fabric Notebook user via Microsoft Entra for ordinary SQL work
-```
-
-Defaults:
-
-```text
---auth-mode azure-cli
---runtime-auth-mode fabric-user
-```
-
-Key Vault is optional enterprise integration, not a prerequisite. Environment-token auth is an optional automation lane.
-
-Warehouse administrator/session-termination authority is separate from normal Fabric user SQL access and remains explicitly gated.
-
-## 4. Prepare local/jumpbox access
-
-From the machine where `fabric-customer` is cloned:
+Create and commit the real non-secret environment config from the example, then run:
 
 ```powershell
 az login
+gh auth status
+python certification/bootstrap.py --apply --environment DEV
 ```
 
-If the corporate identity has Fabric access but no Azure subscription:
+No normal operator `--control-plane-server`, `--control-plane-database`, `--warehouse-server`, or `--warehouse-database` flags are required. The SQL targets are discovered from the exact Fabric items selected by `certification/environments/DEV.json`.
 
-```powershell
-az login --allow-no-subscriptions
-```
-
-Confirm you can read the target Fabric workspace/items before mutating anything. You do not need to print or copy the Fabric access token.
-
-The canonical deployment procedure is:
+Successful preparation must end with:
 
 ```text
-docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md
-```
-
-## 5. Deploy the repository-owned Notebook and Pipeline
-
-Have these non-secret values ready:
-
-```text
-DEV certification workspace UUID
-Control Plane Fabric SQL server hostname
-Control Plane database name
-Warehouse SQL server hostname
-Warehouse database name
-```
-
-Default command:
-
-```powershell
-python certification/fabric_items/deploy_fabric_items.py `
-  --apply `
-  --environment DEV `
-  --workspace-id <CERTIFICATION_WORKSPACE_UUID> `
-  --control-plane-server <CONTROL_PLANE_FABRIC_SQL_HOSTNAME> `
-  --control-plane-database <CONTROL_PLANE_DATABASE_NAME> `
-  --warehouse-server <WAREHOUSE_SQL_HOSTNAME> `
-  --warehouse-database <WAREHOUSE_DATABASE_NAME>
-```
-
-The deployer must produce:
-
-```text
-build/fabric-items/deployment-result.json
-```
-
-Retain the real Notebook/Pipeline UUIDs and definition hashes from that file. A successful deployment deliberately remains:
-
-```text
+bootstrap_status = READY
 certification_result = NOT_RUN
+release_authorized = false
 ```
 
-**Stop** if deployment exits non-zero, duplicate display names are found, authentication fails, a binding is rejected, Fabric REST fails or a long-running operation fails/times out.
+If bootstrap fails, **stop**. Do not continue by manually fabricating files, UUIDs, or evidence.
 
-## 6. Put the exact Framework artifact in the certification Lakehouse
+## 2. What READY means
 
-Use the conventional location:
+Bootstrap has prepared and bound:
 
 ```text
-Files/framework_cert/
+schema-enabled dedicated certification Lakehouse
+Fabric SQL Database Control Plane
+certification Warehouse + fixture tables
+repository-owned seed Spark Job Definition
+repository-owned real Copy Job
+repository-owned real capture Spark Job Definition
+framework-certification-runner Notebook
+framework-certification-worker Notebook
+framework-certification-child Pipeline
+exact Framework CANDIDATE.json + SHA256SUMS + wheel in OneLake
+exact Customer input bundle in OneLake
+Control Plane schema + exact certification semantic metadata
 ```
 
-Expected files:
+The setup seed job has also created the real Lakehouse provider source tables. That setup job is **not** certification evidence.
+
+READY is preparation only.
+
+## 3. Authentication model
+
+Default lane:
 
 ```text
-CANDIDATE.json
-SHA256SUMS
-fabric_data_framework-0.4.0-py3-none-any.whl
+local Fabric REST bootstrap -> current Azure CLI signed-in user
+local OneLake staging       -> same user, Storage audience token
+local SQL bootstrap         -> same user, database.windows.net token + ODBC 18+
+Notebook SQL runtime        -> signed-in Fabric Notebook user via Microsoft Entra
+Key Vault                   -> optional enterprise integration
 ```
 
-Keep exactly one Framework wheel for the run.
+Default mode labels used by the repository contracts:
 
-## 7. Run bounded certification first
+```text
+fabric_rest = azure-cli
+sql_runtime = fabric-user
+```
 
-Install the exact wheel in the certification Notebook/session, restart the session if Fabric requires it, then run:
+Key Vault is optional enterprise integration; it is not required for the default user lane.
+
+Warehouse Admin/session-control authority remains separate from ordinary Fabric user SQL access.
+
+## 4. Bounded/read-safe first run
+
+Open/run the deployed:
+
+```text
+framework-certification-runner
+```
+
+Its source equivalent still invokes:
 
 ```python
 from fabric_data_framework.certification import certify, print_certification_summary
-
-report = certify(spark=spark)
-print_certification_summary(report)
 ```
 
-The bounded suite covers the current core checks, including exact identity, Lakehouse smoke, FULL/REPLACE, WATERMARK/SCD1, WATERMARK/SCD2, retry/idempotency and reconciliation fail-closed behavior.
-
-Expected output root:
+The runner verifies the exact staged Framework wheel before installation and supplies the exact Customer input bundle. Live mutation authorizations default to `False`:
 
 ```text
-Files/framework_cert/certification-output/
+Control Plane conformance writes       false
+Control Plane migration                false
+Pipeline execution                     false
+Copy/Spark capture execution           false
+Warehouse execution                    false
+Warehouse fault injection              false
+Warehouse session termination          false
+business-path execution/mutation       false
 ```
 
-A legitimate `PARTIAL` can be correct when environment-specific live stages are not configured. A real bounded `FAIL` is a hard stop.
+A real bounded `FAIL` is a hard stop. A legitimate `BLOCKED`/`NOT_RUN` remains correct when a strict prerequisite has not been authorized/configured.
 
-## 8. Add exact Customer certification inputs for live stages
+## 5. Explicit live stages
 
-Only after bounded checks pass, use the exact Customer input artifact generated for the intended Customer source and Framework executable.
+Only after bounded checks pass and the required reviews/permissions are available should the exact live stages be enabled.
 
-Source producer:
-
-```text
-.github/workflows/candidate-business-path-inputs.yml
-```
-
-Extract the retained bundle under:
-
-```text
-/lakehouse/default/Files/framework_cert/customer-inputs/
-```
-
-Expected shape:
-
-```text
-customer-inputs/
-  INPUTS.json
-  runner-config.json
-  release-manifest.json
-  project/
-  dist/
-```
-
-Use real physical bindings. The Notebook/Pipeline deployment result supplies the real certification Pipeline UUID; Copy/Spark/item-read bindings remain separate real item IDs. Do not edit an exact retained bundle by hand to swap hashes or fabricate identifiers.
-
-## 9. Live certification remains fail-closed
-
-Proceed only for explicitly approved mutations. The full path can cover:
+The possible chain remains:
 
 ```text
 bounded suite
 -> Fabric item read
 -> real Fabric SQL Control Plane conformance/evidence
--> repository-owned Pipeline + durable Framework outcome
--> Copy
--> Spark
+-> repository-owned child Pipeline + durable Framework outcome
+-> repository-owned Copy Job capture
+-> repository-owned Spark Job Definition capture
 -> Warehouse normal commit
--> separately approved Warehouse fault/recovery drill
--> live FULL/SCD1/SCD2/retry/reconciliation business paths
+-> separately authorized Warehouse fault/recovery drill
+-> FULL/SCD1/SCD2/retry/reconciliation business paths
 -> strict evidence merge
 ```
 
-Missing configuration, review or authority remains `BLOCKED` / `NOT_RUN`. Ordinary Fabric user access must never be promoted into Warehouse session-control authority.
+The Copy/Spark items being repository-owned means their deployment identity is reproducible. It does **not** mean provider completion alone is PASS: the Framework capture adapter, Customer observer, exact release bindings, durable prerequisites, and evidence merge still decide the certification result.
 
-Current strict release blockers remain documented in `docs/CURRENT_STATUS.md` and `fabric-data-framework/docs/machine/STATE.md`.
+Never infer Warehouse session-termination authority from ordinary Fabric SQL access.
 
-## 10. After the run
+## 6. Current strict blockers
 
-Retain only non-secret evidence:
+Source intentionally remains fail-closed for:
 
-- exact Framework SHA, CI run, artifact ID and wheel SHA256;
-- exact Customer source/input identity;
-- real workspace/item UUIDs;
-- deployment definition hashes;
-- Framework-generated certification/evidence output;
-- explicit PASS / FAIL / BLOCKED / NOT_RUN results.
+```text
+control_plane_external_evidence_incomplete
+control_plane_external_evidence_not_review_bound
+warehouse_real_fault_controller_not_configured
+```
 
-Then update `docs/CURRENT_STATUS.md` only with facts actually evidenced by the run. Do not add another PR-number recovery-history section.
+Therefore a bootstrap READY is expected to coexist with strict blockers. It does not remove the current release boundary.
+
+## 7. Retain only genuine evidence
+
+Keep only non-secret facts:
+
+```text
+exact Framework SHA/main-CI/artifact/wheel SHA
+exact Customer source/input identity
+bootstrap result with real resource/item UUIDs + definition hashes
+real seed setup job ID/status clearly labeled setup-only
+Framework-generated PASS/FAIL/BLOCKED/NOT_RUN certification output
+review-bound external evidence when it actually exists
+```
+
+Do not retain tokens/passwords. Update `docs/CURRENT_STATUS.md` only with facts actually evidenced by the run; do not add PR-number recovery history.

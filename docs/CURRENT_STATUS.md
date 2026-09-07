@@ -1,20 +1,19 @@
 # Current Status — fabric-customer
 
-Last updated: 2026-09-06
+Last updated: 2026-09-07
 
 ## Recovery rule
 
-**GitHub `main` is truth.** For a new conversation, do not rebuild current state from old PRs, old certification artifacts or chat memory.
-
-Read in this order:
+**GitHub `main` is truth.** For a new conversation, read only:
 
 ```text
 1. fabric-customer/docs/CURRENT_STATUS.md
-2. fabric-customer/docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
-3. fabric-data-framework/docs/machine/STATE.md
+2. fabric-customer/docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md
+3. fabric-customer/docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
+4. fabric-data-framework/docs/machine/STATE.md
 ```
 
-Only open deeper architecture/operations docs when the task needs them.
+Do not reconstruct current state from old PRs, old chat state, or old certification artifacts.
 
 ## Current product truth
 
@@ -32,28 +31,54 @@ enterprise_topology:
   control_plane_profile: fabric_sql_database_v1
   medallion_data_plane: Lakehouse / OneLake
   warehouse: optional SQL-first Gold / dimensional serving
-  runtime_state_promoted_between_environments: false
 
 default_auth:
   fabric_rest: azure-cli
   sql_runtime: fabric-user
+  sql_identity: Microsoft Entra signed-in user
   key_vault_required: false
   key_vault_optional: true
-  env_token_optional_for_automation: true
+
+certification_bootstrap:
+  preferred_command: python certification/bootstrap.py --apply --environment DEV
+  environment_is_fabric_environment_item: false
+  environment_config: certification/environments/DEV.json
+  repeated_sql_server_database_cli_args_required: false
+  lakehouse_resolve_or_create: true
+  fabric_sql_database_resolve_or_create: true
+  warehouse_resolve_or_create: true
+  copy_job_resolve_or_create: true
+  spark_job_resolve_or_create: true
+  seed_spark_job_resolve_or_create: true
+  runner_notebook_deploy: true
+  worker_notebook_deploy: true
+  pipeline_deploy: true
+  exact_framework_artifact_staging: true
+  exact_customer_input_bundle_staging: true
+  provider_source_seed: setup_only_not_evidence
+  warehouse_fixture_bootstrap: true
+  control_plane_schema_metadata_bootstrap: true
+  bootstrap_terminal_state: READY / NOT_RUN
 
 real_fabric_state:
-  certification_notebook_source_merged: true
-  certification_pipeline_source_merged: true
+  repository_owned_bootstrap_source_merged: true
   repository_owned_certification_notebook_deployed: false
   repository_owned_certification_pipeline_deployed: false
+  repository_owned_certification_resources_bootstrapped_in_company_fabric: false
   current_framework_real_fabric_certification_executed: false
 ```
 
-Do not change the production dependency until immutable Framework `v0.4.0` exists and release governance explicitly authorizes migration.
+The source capability above does **not** claim that a company Fabric workspace has already been mutated. A real bootstrap result must supply the item UUIDs/actions, and Framework-generated evidence must supply execution outcomes.
 
-## Exact Framework executable for the next DEV run
+## Exact Framework executable for certification
 
-Documentation-only commits after the executable baseline do not create a new candidate. The exact Framework bytes for the next real-Fabric execution remain:
+Machine-readable source:
+
+```text
+certification/framework-executable.json
+```
+
+Current identity:
 
 ```text
 Framework executable SHA   17fbbd8ed2afb14771748a25d3e12d9bf63fe986
@@ -62,67 +87,90 @@ artifact ID                9982333832
 artifact name              framework-wheel-17fbbd8ed2afb14771748a25d3e12d9bf63fe986
 wheel                      fabric_data_framework-0.4.0-py3-none-any.whl
 wheel SHA256               0d7d351548712db3293b00a3b8eb968387f573b542d8fe506c9436a1b9b0a834
-artifact ZIP digest        sha256:07e6f54e9fa4a9b93f4536afd2d0f59754cde4fd33bd26dd3a15ae4b8c2b9791
 selected/frozen            false
 real-Fabric result         NOT YET
 ```
 
-If executable Framework source changes, stop and resolve a new exact artifact identity before testing.
+`framework-executable.json` selects the exact next executable bytes and validates their successful main-CI provenance. It is not a candidate freeze.
 
-## What is already complete
+## Environment is the operator key
 
-Source/CI work is complete for the current boundary:
-
-- enterprise DEV/UAT/PROD topology is aligned;
-- `fabric_sql_database_v1` is the only canonical Customer Control Plane profile;
-- Fabric-native Entra SQL runtime exists in the current Framework executable;
-- Customer certification Notebook/Pipeline definitions are source-controlled;
-- common deployment defaults to Azure CLI user auth for Fabric REST and signed-in Fabric user auth for SQL;
-- Key Vault is optional rather than a prerequisite;
-- normal multi-table execution-group/recovery examples are present;
-- Customer production remains safely pinned to Framework `0.3.0`.
-
-More source-only recovery/checkpoint work is not the next priority.
-
-## Next boundary — isolated DEV Fabric
-
-The next action is a real isolated DEV execution:
+`--environment DEV` selects:
 
 ```text
-current fabric-customer main
-+ exact Framework wheel above
--> deploy repository-owned certification Notebook + Pipeline
--> retain deployment-result.json with real Fabric item UUIDs
--> run bounded certification
--> STOP on any real FAIL
--> only then continue approved live Control Plane / Pipeline / Copy / Spark / Warehouse stages
--> retain real evidence
+certification/environments/DEV.json
 ```
 
-Canonical operator docs:
+It does **not** create/use a Fabric Environment item.
+
+The environment document contains only non-secret physical identity and policy:
 
 ```text
-docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md
-docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
-docs/runbooks/OPERATE_MULTI_TABLE_PIPELINES.md
-docs/runbooks/ENTERPRISE_ENVIRONMENT_TOPOLOGY.md
+workspace UUID
+exact display names + create_if_missing for Lakehouse / SQL Database / Warehouse
+exact display names + create_if_missing for repository-owned Copy/Spark/seed jobs
+exact display names + create_if_missing for runner/worker/Pipeline
+bounded bootstrap mutation policy
 ```
 
-Default lane requires Fabric permissions, not Azure Key Vault administration:
+Only `.example.json` templates ship without a real workspace identity. Copy the matching example, replace the intentionally invalid all-zero workspace UUID, review, and commit the real `DEV.json`/`UAT.json` once.
+
+Normal operators no longer repeat:
 
 ```text
-az login / az login --allow-no-subscriptions
-Fabric REST auth = azure-cli
-SQL runtime auth = fabric-user
+--control-plane-server
+--control-plane-database
+--warehouse-server
+--warehouse-database
 ```
 
-Warehouse administrator/session-control authority is separate and must never be inferred from ordinary Fabric user access.
+Those SQL targets are discovered from Fabric REST using the actual resolved items.
 
-Successful Fabric-item deployment writes `deployment-result.json` with `certification_result = NOT_RUN`; deployment is not certification.
+## One-click bootstrap boundary
+
+Normal preparation:
+
+```powershell
+python certification/bootstrap.py --apply --environment DEV
+```
+
+Fail-closed sequence:
+
+```text
+clean exact Customer source
++ exact Framework successful-main artifact verification
+-> resolve/create schema-enabled Lakehouse
+-> resolve/create Fabric SQL Database Control Plane
+-> resolve/create dedicated Warehouse
+-> resolve/create repository-owned seed Spark / Copy Job / capture Spark Job
+-> resolve/create Lakehouse-bound worker Notebook + child Pipeline + runner Notebook
+-> run setup-only seed Spark job for real provider source Delta tables
+-> build exact Customer extension/input bundle with real Fabric item UUIDs
+-> stage exact Framework + Customer bytes to OneLake
+-> apply Warehouse fixtures
+-> apply Control Plane schema + exact DatasetConfig metadata
+-> write build/certification-bootstrap/DEV/bootstrap-result.json
+-> STOP at bootstrap_status=READY, certification_result=NOT_RUN
+```
+
+Bootstrap never enables live certification authorization flags and never writes PASS/release-ready state. A successful preparation deliberately remains `certification_result = NOT_RUN`.
+
+## Repository-owned Copy/Spark provider items
+
+The one-click path now creates/updates real provider definitions instead of asking an operator to paste pre-existing IDs:
+
+```text
+Copy Job:
+  dbo.cert_copy_source -> dbo.cert_copy_landing in certification Lakehouse
+
+Spark Job Definition:
+  reads dbo.cert_spark_source with Framework-supplied bounds
+  -> writes dbo.cert_spark_landing in certification Lakehouse
+```
+
+The seed Spark job only prepares the source Delta tables. Real Copy/Spark certification remains a later explicitly authorized Framework evidence stage. Provider `Completed` alone is not PASS.
 
 ## Current strict blockers
-
-The current fail-closed blockers include:
 
 ```text
 control_plane_external_evidence_incomplete
@@ -139,9 +187,21 @@ strict_release_ready: false
 release_authorized = false
 ```
 
-A bounded certification PASS is not a candidate freeze. A manual/admin record is not a substitute for strict evidence-based release readiness.
+A bootstrap `READY` or bounded certification PASS does not freeze/authorize a release.
+
+## Production boundary
+
+Production remains:
+
+```text
+fabric-data-framework==0.3.0
+```
+
+Do not change it until immutable Framework `v0.4.0` exists and strict release governance explicitly authorizes migration.
 
 ## Normal customer-project baseline
+
+The static framework-next project-contract compatibility pin remains `148e02e3fff7861f238296e7554815a6fd49dd0a`; it is separate from the certification executable identity.
 
 The normal project workflow remains:
 
@@ -154,32 +214,29 @@ fabric-framework project-init <repo> --domain <domain>
 -> DEV -> UAT -> PROD using the same logical topology
 ```
 
-The static framework-next compatibility lane remains pinned to:
+The enterprise reference remains 100 tables: 50 FULL/REPLACE, 20 WATERMARK/SCD2, 20 WATERMARK/SCD1, 10 CDC/UPSERT using Debezium / external CDC. That fixture proves onboarding/config scale, not live Fabric performance.
+
+## Exact next real boundary
+
+After this source is on Customer `main` and CI is green:
 
 ```text
-148e02e3fff7861f238296e7554815a6fd49dd0a
+create/commit certification/environments/DEV.json with the real isolated DEV workspace UUID
+-> az login + gh auth
+-> python certification/bootstrap.py --apply --environment DEV
+-> retain genuine bootstrap-result.json
+-> run framework-certification-runner bounded/read-safe first
+-> STOP on real FAIL
+-> explicitly authorize live stages only when prerequisites are ready
 ```
 
-The enterprise reference contains **100** tables:
+No current-source live bootstrap/certification evidence exists yet.
+
+## Canonical operator docs
 
 ```text
-50 FULL -> REPLACE
-20 WATERMARK -> SCD2
-20 WATERMARK -> SCD1
-10 CDC -> UPSERT using Debezium / external CDC
+docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md
+docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
+docs/runbooks/OPERATE_MULTI_TABLE_PIPELINES.md
+docs/runbooks/ENTERPRISE_ENVIRONMENT_TOPOLOGY.md
 ```
-
-That fixture proves onboarding/config scale, not live Fabric performance.
-
-## Do not do these next
-
-Do not:
-
-- create more PR-number recovery checkpoints;
-- resurrect old Framework wheel identities from historical docs;
-- make Key Vault mandatory for the ordinary Fabric-only data-engineer lane;
-- edit retained evidence by hand to invent item UUIDs or PASS state;
-- freeze or release Framework 0.4 before current-byte real-Fabric evidence exists;
-- change Customer production from `fabric-data-framework==0.3.0` because source CI is green.
-
-Git history contains historical implementation detail when it is genuinely needed. Current docs intentionally contain current truth only.

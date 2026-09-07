@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "framework_repository": "ruizengalways/fabric-data-framework",
+  "framework_version": "0.4.0",
+  "candidate_git_sha": "17fbbd8ed2afb14771748a25d3e12d9bf63fe986",
+  "main_ci_run_id": 34010629765,
+  "required_main_ci_jobs": [
+    "test-python-3.11",
+    "test-python-3.13",
+    "build-wheel",
+    "release-readiness-contract"
+  ],
+  "artifact_id": 9982333832,
+  "artifact_name": "framework-wheel-17fbbd8ed2afb14771748a25d3e12d9bf63fe986",
+  "artifact_zip_digest": "sha256:07e6f54e9fa4a9b93f4536afd2d0f59754cde4fd33bd26dd3a15ae4b8c2b9791",
+  "wheel_filename": "fabric_data_framework-0.4.0-py3-none-any.whl",
+  "wheel_sha256": "0d7d351548712db3293b00a3b8eb968387f573b542d8fe506c9436a1b9b0a834",
+  "selected_as_frozen_candidate": false,
+  "release_authorized": false
+}
