@@ -9,6 +9,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 CERT = ROOT / "certification"
+SUPPORT = CERT / "support"
+FABRIC = CERT / "fabric"
 
 
 def _load_module(name: str, path: Path):
@@ -23,14 +25,18 @@ def _load_module(name: str, path: Path):
 def test_bootstrap_python_sources_compile():
     paths = [
         CERT / "bootstrap.py",
-        CERT / "bootstrap_identity.py",
-        CERT / "fabric_bootstrap_support.py",
-        CERT / "environment_config.py",
-        CERT / "onelake_staging.py",
-        CERT / "sql_bootstrap.py",
-        CERT / "fabric_items/provider_definitions.py",
-        CERT / "fabric_items/spark/seed.py",
-        CERT / "fabric_items/spark/capture.py",
+        CERT / "build_candidate_inputs.py",
+        SUPPORT / "bootstrap_identity.py",
+        SUPPORT / "fabric_bootstrap_support.py",
+        SUPPORT / "environment_config.py",
+        SUPPORT / "onelake_staging.py",
+        SUPPORT / "review_binding.py",
+        SUPPORT / "sql_bootstrap.py",
+        FABRIC / "deploy_fabric_items.py",
+        FABRIC / "render_fabric_items.py",
+        FABRIC / "provider_definitions.py",
+        FABRIC / "spark/seed.py",
+        FABRIC / "spark/capture.py",
         CERT / "extensions/src/fabric_customer_certification_extensions/lakehouse_capture_observer.py",
         CERT / "extensions/src/fabric_customer_certification_extensions/spark_runtime.py",
     ]
@@ -39,8 +45,8 @@ def test_bootstrap_python_sources_compile():
 
 
 def test_environment_key_is_not_fabric_environment_and_rejects_template_uuid(tmp_path):
-    module = _load_module("cert_environment_config", CERT / "environment_config.py")
-    example = CERT / "environments/DEV.example.json"
+    module = _load_module("cert_environment_config", SUPPORT / "environment_config.py")
+    example = CERT / "config/environments/DEV.example.json"
     with pytest.raises(ValueError, match="all-zero template UUID"):
         module.load_environment_config(example, expected_environment="DEV")
 
@@ -53,12 +59,13 @@ def test_environment_key_is_not_fabric_environment_and_rejects_template_uuid(tmp
     assert config.control_plane.display_name == "framework-certification-control"
     assert config.copy_job.display_name == "framework-certification-copy"
     assert len(config.safe_fingerprint()) == 64
+    assert module.default_config_path("DEV") == Path("certification/config/environments/DEV.json")
 
 
 def test_repository_owned_copy_and_spark_definitions_are_real_lakehouse_items():
     module = _load_module(
         "cert_provider_definitions",
-        CERT / "fabric_items/provider_definitions.py",
+        FABRIC / "provider_definitions.py",
     )
     workspace = "00000000-0000-0000-0000-000000000001"
     lakehouse = "00000000-0000-0000-0000-000000000002"
@@ -109,7 +116,7 @@ def test_capture_evidence_observes_lakehouse_and_spark_execution_data_uses_suppo
         CERT
         / "extensions/src/fabric_customer_certification_extensions/spark_runtime.py"
     ).read_text()
-    spark_job = (CERT / "fabric_items/spark/capture.py").read_text()
+    spark_job = (FABRIC / "spark/capture.py").read_text()
     assert "spark.table(request.landing_reference)" in observer
     assert "dbo.cert_spark_run_marker" in observer
     assert '"commandLineArguments"' in runtime
@@ -120,7 +127,7 @@ def test_capture_evidence_observes_lakehouse_and_spark_execution_data_uses_suppo
 
 def test_runner_is_bounded_first_and_never_auto_authorizes_live_mutations():
     notebook = json.loads(
-        (CERT / "fabric_items/notebook/certification-runner.ipynb").read_text()
+        (FABRIC / "notebook/certification-runner.ipynb").read_text()
     )
     source = "\n".join(
         "".join(cell.get("source", []))
@@ -146,7 +153,7 @@ def test_runner_is_bounded_first_and_never_auto_authorizes_live_mutations():
 
 def test_bootstrap_contract_is_ready_not_run_and_keeps_production_pin():
     source = (CERT / "bootstrap.py").read_text()
-    support = (CERT / "fabric_bootstrap_support.py").read_text()
+    support = (SUPPORT / "fabric_bootstrap_support.py").read_text()
     assert '"bootstrap_status": "READY"' in source
     assert '"certification_result": "NOT_RUN"' in source
     assert '"release_authorized": False' in source
@@ -155,6 +162,22 @@ def test_bootstrap_contract_is_ready_not_run_and_keeps_production_pin():
     assert "allow_pipeline_execution=True" not in source
     assert "certification_result\": \"PASS" not in source
     assert "fabric-data-framework==0.3.0" in (ROOT / "pyproject.toml").read_text()
+
+
+def test_repository_layout_has_single_current_world():
+    assert (ROOT / "config/orchestration/execution-groups").is_dir()
+    assert (ROOT / "config/environments/dev.json").is_file()
+    assert (ROOT / "fabric/README.md").is_file()
+    assert (CERT / "config/environments/DEV.example.json").is_file()
+    assert (CERT / "fabric/notebook/certification-runner.ipynb").is_file()
+    assert (CERT / "support/environment_config.py").is_file()
+    for removed in (
+        ROOT / "deploy",
+        ROOT / "examples/pipeline_development",
+        CERT / "environments",
+        CERT / "fabric_items",
+    ):
+        assert not removed.exists()
 
 
 def test_framework_executable_pin_and_recovery_docs_are_machine_recoverable():
@@ -172,5 +195,5 @@ def test_framework_executable_pin_and_recovery_docs_are_machine_recoverable():
     for text in (status, deploy, runbook):
         assert "python certification/bootstrap.py --apply --environment DEV" in text
         assert "certification_result" in text and "NOT_RUN" in text
-    assert "certification/environments/DEV.json" in status
+    assert "certification/config/environments/DEV.json" in status
     assert "environment_is_fabric_environment_item: false" in status
