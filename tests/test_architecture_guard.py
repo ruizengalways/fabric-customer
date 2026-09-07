@@ -1,6 +1,6 @@
 import ast
-from pathlib import Path
 import tomllib
+from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -11,13 +11,12 @@ FRAMEWORK_DISTRIBUTION = "fabric-data-framework"
 def _imports_framework(path: Path) -> bool:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            if any(
-                alias.name == FRAMEWORK_PACKAGE
-                or alias.name.startswith(f"{FRAMEWORK_PACKAGE}.")
-                for alias in node.names
-            ):
-                return True
+        if isinstance(node, ast.Import) and any(
+            alias.name == FRAMEWORK_PACKAGE
+            or alias.name.startswith(f"{FRAMEWORK_PACKAGE}.")
+            for alias in node.names
+        ):
+            return True
         if isinstance(node, ast.ImportFrom):
             module = node.module or ""
             if module == FRAMEWORK_PACKAGE or module.startswith(f"{FRAMEWORK_PACKAGE}."):
