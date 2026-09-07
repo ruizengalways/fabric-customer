@@ -3,7 +3,7 @@ name: customer-simulator-ci
 on:
   pull_request:
   push:
-    branches: [main, "refactor/**"]
+    branches: [main, "refactor/**", "docs/**"]
 
 permissions:
   contents: read
@@ -26,16 +26,19 @@ jobs:
           PY
       - name: Unit and architecture tests
         run: pytest -q
-      - name: Static correctness checks
-        run: ruff check --isolated --select E9,F63,F7,F82 src tests
+      - name: Lint
+        run: ruff check src tests
       - name: Build wheel
         run: |
           python -m pip install build
           python -m build --wheel
           python -m pip install --force-reinstall --no-deps dist/*.whl
           python -m pip check
-      - name: Deterministic smoke generation
+      - name: Deterministic workload materialization and verification
         run: |
           rm -rf build/customer-scenario
           fabric-customer materialize --through-day 7 --output build/customer-scenario
+          fabric-customer verify --output build/customer-scenario
           test -f build/customer-scenario/expected/current_state/day_07/customers.json
+          test -f build/customer-scenario/SHA256SUMS
+          test -f build/customer-scenario/WORKLOAD.json
