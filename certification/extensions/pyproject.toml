@@ -13,10 +13,10 @@ dependencies = [
 ]
 
 [project.entry-points."fabric_data_framework.capture_observers"]
-"cert.capture-observer" = "fabric_customer_certification_extensions:observe_capture"
+"cert.capture-observer" = "fabric_customer_certification_extensions.lakehouse_capture_observer:observe_capture"
 
 [project.entry-points."fabric_data_framework.spark_execution_data"]
-"cert.spark-execution-data" = "fabric_customer_certification_extensions:spark_execution_data"
+"cert.spark-execution-data" = "fabric_customer_certification_extensions.spark_runtime:spark_execution_data"
 
 [project.entry-points."fabric_data_framework.warehouse_mutations"]
 "cert.warehouse-mutation" = "fabric_customer_certification_extensions:warehouse_mutation"
