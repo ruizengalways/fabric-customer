@@ -7,7 +7,7 @@ import tomllib
 
 
 ROOT = Path(__file__).resolve().parents[1]
-POLICY_ROOT = ROOT / "examples" / "pipeline_development" / "framework_0_4" / "execution-groups"
+POLICY_ROOT = ROOT / "config" / "orchestration" / "execution-groups"
 MANIFEST = ROOT / "examples" / "enterprise_100_table" / "health_100_tables.csv"
 EXPECTED_GROUPS = {
     "health_full_refresh",
@@ -30,7 +30,7 @@ def _manifest_groups() -> dict[str, str]:
         }
 
 
-def test_framework_0_4_pipeline_examples_are_complete_and_safe() -> None:
+def test_current_execution_group_policies_are_complete_and_safe() -> None:
     assert "fabric-data-framework==0.3.0" in _production_dependencies()
 
     paths = sorted(POLICY_ROOT.glob("*.json"))
@@ -69,6 +69,12 @@ def test_framework_0_4_pipeline_examples_are_complete_and_safe() -> None:
     assert seen == EXPECTED_GROUPS
 
 
+def test_repository_does_not_version_current_runtime_directories() -> None:
+    assert not (ROOT / "examples" / "pipeline_development").exists()
+    for forbidden in ("framework_0_4", "framework_0_5", "latest", "legacy"):
+        assert not (ROOT / "config" / forbidden).exists()
+
+
 def test_pipeline_operations_runbook_is_present_and_fail_closed() -> None:
     text = (ROOT / "docs" / "runbooks" / "OPERATE_MULTI_TABLE_PIPELINES.md").read_text(
         encoding="utf-8"
@@ -82,6 +88,7 @@ def test_pipeline_operations_runbook_is_present_and_fail_closed() -> None:
         "UNKNOWN_COMMIT",
         "Debezium",
         "fabric-data-framework==0.3.0",
+        "config/orchestration/execution-groups",
     ):
         assert token in text
     assert "blind retry" in text
