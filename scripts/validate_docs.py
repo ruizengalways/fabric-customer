@@ -1,8 +1,8 @@
 """Dependency-free consistency checks for canonical Customer documentation.
 
-The goal is not prose linting. This gate prevents version pins, framework-next SHA,
-project commands, proof labels, enterprise topology, and known stale implementation
-states from silently drifting across the files engineers use to bootstrap a new domain.
+The gate protects the small current-reading surface: release pins, Framework transition
+identity, repository layout, project commands, enterprise topology and known stale-state
+phrases. Git history owns old implementation archaeology.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 CANONICAL_DOCS = {
     "README": ROOT / "README.md",
-    "BLUEPRINT": ROOT / "docs" / "PROJECT_BLUEPRINT.md",
+    "ARCHITECTURE": ROOT / "docs" / "ARCHITECTURE.md",
     "STATUS": ROOT / "docs" / "CURRENT_STATUS.md",
     "RUNBOOK": ROOT / "docs" / "runbooks" / "BUILD_NEW_DOMAIN_PROJECT.md",
     "EXAMPLE": ROOT / "examples" / "enterprise_100_table" / "README.md",
@@ -27,6 +27,11 @@ FORBIDDEN_STALE_PHRASES = (
     "pending branch CI/merge",
     "CI/PR VALIDATION REQUIRED BEFORE MERGE",
     "intended CI gate for this change",
+    "docs/PROJECT_BLUEPRINT.md",
+    "examples/pipeline_development/framework_0_4",
+    "certification/environments/DEV.json",
+    "certification/fabric_items",
+    "deploy/bindings.dev.json",
 )
 
 
@@ -72,24 +77,21 @@ def main() -> int:
             if stale in text:
                 raise ValueError(f"{label} contains stale implementation state {stale!r}")
 
-    for label in ("README", "BLUEPRINT", "STATUS", "RUNBOOK"):
+    for label in ("README", "ARCHITECTURE", "STATUS", "RUNBOOK"):
         _require(texts[label], next_sha, label=label)
 
-    for label in ("README", "BLUEPRINT", "STATUS", "RUNBOOK", "EXAMPLE"):
+    for label in ("README", "ARCHITECTURE", "STATUS", "RUNBOOK", "EXAMPLE"):
         _require(texts[label], "project-validate", label=label)
 
-    for label in ("README", "BLUEPRINT", "RUNBOOK", "EXAMPLE"):
+    for label in ("README", "ARCHITECTURE", "RUNBOOK", "EXAMPLE"):
         _require(texts[label], "project-init", label=label)
 
-    for label in ("README", "BLUEPRINT", "STATUS", "RUNBOOK", "EXAMPLE"):
+    for label in ("README", "ARCHITECTURE", "STATUS", "RUNBOOK", "EXAMPLE"):
         _require(texts[label], "Debezium", label=label)
 
-    # Enterprise environment topology is a distinct operational contract. It is kept
-    # outside the legacy five-document count so older checkpoint evidence remains
-    # stable, but its required architecture tokens are still CI-enforced.
     for label, text in (
         ("README", texts["README"]),
-        ("BLUEPRINT", texts["BLUEPRINT"]),
+        ("ARCHITECTURE", texts["ARCHITECTURE"]),
         ("TOPOLOGY", topology),
     ):
         _require(text, "fabric_sql_database_v1", label=label)
@@ -104,8 +106,35 @@ def main() -> int:
     _require(topology, "Why not Lakehouse control tables", label="TOPOLOGY")
     _require(topology, "Never promote DEV runtime rows", label="TOPOLOGY")
 
-    if not (ROOT / "fabric-project.json").is_file():
+    required_layout = (
+        ROOT / "config" / "environments",
+        ROOT / "config" / "orchestration" / "execution-groups",
+        ROOT / "fabric",
+        ROOT / "certification" / "config" / "environments",
+        ROOT / "certification" / "fabric",
+        ROOT / "certification" / "support",
+    )
+    for path in required_layout:
+        if not path.exists():
+            raise ValueError(f"canonical repository path is missing: {path.relative_to(ROOT)}")
+
+    forbidden_layout = (
+        ROOT / "deploy",
+        ROOT / "examples" / "pipeline_development",
+        ROOT / "certification" / "environments",
+        ROOT / "certification" / "fabric_items",
+    )
+    for path in forbidden_layout:
+        if path.exists():
+            raise ValueError(f"obsolete repository path still exists: {path.relative_to(ROOT)}")
+
+    project_file = ROOT / "fabric-project.json"
+    if not project_file.is_file():
         raise ValueError("fabric-project.json is required by the documented project contract")
+    project_text = project_file.read_text(encoding="utf-8")
+    _require(project_text, '"environment_binding_dir": "config/environments"', label="PROJECT")
+    _require(project_text, '"deployment_dir": "fabric"', label="PROJECT")
+
     if not (ROOT / "config" / "capture" / "semantic-selections.json").is_file():
         raise ValueError(
             "config/capture/semantic-selections.json is required by the documented project contract"
@@ -115,7 +144,7 @@ def main() -> int:
         "validated canonical docs "
         f"released_framework={version} framework_next_sha={next_sha} "
         f"documents={len(texts)} stale_phrases={len(FORBIDDEN_STALE_PHRASES)} "
-        "enterprise_topology=validated"
+        "enterprise_topology=validated repository_layout=validated"
     )
     return 0
 
