@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
 import shutil
-from typing import Any, Iterable
+from collections.abc import Iterable
+from pathlib import Path
+from typing import Any
 
 from .scenarios import scenario_catalog
 
