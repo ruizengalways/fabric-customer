@@ -135,6 +135,13 @@ clean exact Customer source
 -> STOP at bootstrap_status=READY, certification_result=NOT_RUN
 ```
 
+The canonical retained fail-closed state remains:
+
+```text
+certification_result = NOT_RUN
+release_authorized = false
+```
+
 Bootstrap never enables live certification authorization flags and never manufactures PASS, freeze, release-ready, or release-authorized state.
 
 ## Repository-owned provider path
@@ -166,7 +173,7 @@ Therefore:
 candidate_status: not_frozen
 release_allowed: false
 strict_release_ready: false
-release_authorized: false
+release_authorized = false
 ```
 
 ## Production boundary
