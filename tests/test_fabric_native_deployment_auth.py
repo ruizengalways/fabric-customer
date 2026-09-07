@@ -9,7 +9,7 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
-FABRIC_ITEMS = ROOT / "certification/fabric_items"
+FABRIC_ITEMS = ROOT / "certification/fabric"
 WORKSPACE_ID = "00000000-0000-0000-0000-000000000001"
 NOTEBOOK_ID = "00000000-0000-0000-0000-000000000002"
 PIPELINE_ID = "00000000-0000-0000-0000-000000000003"
