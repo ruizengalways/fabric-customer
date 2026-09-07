@@ -1,8 +1,20 @@
-"""Customer reference domain for fabric-data-framework."""
+"""Fabric-native, framework-agnostic customer/source-system simulator."""
 
-from .domain import customer_mapper, customer_rules, parse_crm_rows
-from .metadata import load_customer_config
+from .domain import SourceValidationRule, customer_mapper, customer_rules, parse_crm_rows
+from .metadata import SourceTableDefinition, load_customer_config, source_catalog
+from .simulator import materialize_scenario, reset_scenario, scenario_catalog
 
-__all__ = ["customer_mapper", "customer_rules", "load_customer_config", "parse_crm_rows"]
+__all__ = [
+    "SourceTableDefinition",
+    "SourceValidationRule",
+    "customer_mapper",
+    "customer_rules",
+    "load_customer_config",
+    "materialize_scenario",
+    "parse_crm_rows",
+    "reset_scenario",
+    "scenario_catalog",
+    "source_catalog",
+]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

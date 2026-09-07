@@ -1,11 +1,25 @@
-"""Customer-specific source parsing, mapping and data-quality rules."""
+"""Source-system parsing and validation rules owned by the customer simulator.
+
+Nothing in this module imports or assumes a downstream data-engineering framework.
+"""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
-from fabric_data_framework.quality import RowRule
+
+@dataclass(frozen=True)
+class SourceValidationRule:
+    """A source-quality fact used when generating deliberately good/bad source rows."""
+
+    code: str
+    message: str
+    predicate: Callable[[Mapping[str, Any]], bool]
+
+    def accepts(self, row: Mapping[str, Any]) -> bool:
+        return bool(self.predicate(row))
 
 
 def parse_crm_rows(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any], ...]:
@@ -19,8 +33,8 @@ def parse_crm_rows(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any], .
     return tuple(parsed)
 
 
-def customer_mapper(row: dict[str, Any]) -> dict[str, Any]:
-    """Explicit domain mapping; generic SCD2 behaviour remains in the framework."""
+def customer_mapper(row: Mapping[str, Any]) -> dict[str, Any]:
+    """Normalize a CRM source row without applying target SCD/merge semantics."""
 
     return {
         "customer_id": row["customer_id"],
@@ -29,17 +43,18 @@ def customer_mapper(row: dict[str, Any]) -> dict[str, Any]:
         "segment": str(row.get("segment") or "UNKNOWN").upper(),
         "email": str(row.get("email") or "").lower(),
         "modified_at": row["modified_at"],
+        **({"preferred_language": row["preferred_language"]} if "preferred_language" in row else {}),
     }
 
 
-def customer_rules() -> tuple[RowRule, ...]:
+def customer_rules() -> tuple[SourceValidationRule, ...]:
     return (
-        RowRule(
+        SourceValidationRule(
             code="EMAIL_FORMAT",
             message="email must contain @",
             predicate=lambda row: "@" in str(row.get("email") or ""),
         ),
-        RowRule(
+        SourceValidationRule(
             code="SEGMENT_ALLOWED",
             message="segment must be STANDARD, PREMIUM or ENTERPRISE",
             predicate=lambda row: str(row.get("segment") or "").upper()

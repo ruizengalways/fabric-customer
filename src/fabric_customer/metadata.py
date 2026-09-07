@@ -1,16 +1,36 @@
-"""Source-controlled Customer dataset metadata loading."""
+"""Framework-neutral source-system catalog."""
 
 from __future__ import annotations
 
-from pathlib import Path
-
-from fabric_data_framework.config import DatasetConfig
+from dataclasses import dataclass
 
 
-def default_customer_config_path() -> Path:
-    return Path(__file__).resolve().parents[2] / "config" / "datasets" / "crm.customer.json"
+@dataclass(frozen=True)
+class SourceTableDefinition:
+    source_system: str
+    table: str
+    delivery_pattern: str
+    primary_key: tuple[str, ...]
+    truth_model: str
+    notes: str = ""
 
 
-def load_customer_config(path: Path | None = None) -> DatasetConfig:
-    source = path or default_customer_config_path()
-    return DatasetConfig.model_validate_json(source.read_text(encoding="utf-8"))
+_CATALOG = (
+    SourceTableDefinition("crm", "customer", "incremental_watermark", ("customer_id",), "current_and_history"),
+    SourceTableDefinition("billing", "invoice", "full_snapshot", ("invoice_id",), "current_state"),
+    SourceTableDefinition("health", "patient_profile", "incremental_changes", ("patient_id",), "current_and_history"),
+    SourceTableDefinition("claims", "claim_events", "debezium_cdc", ("claim_id",), "source_events"),
+)
+
+
+def source_catalog() -> tuple[SourceTableDefinition, ...]:
+    return _CATALOG
+
+
+def load_customer_config() -> SourceTableDefinition:
+    """Compatibility name returning the CRM source definition, not framework metadata.
+
+    v0.2 deliberately removes the former fabric-data-framework DatasetConfig dependency.
+    """
+
+    return _CATALOG[0]
