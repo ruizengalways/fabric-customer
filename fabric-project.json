@@ -3,8 +3,8 @@
   "domain": "customer",
   "dataset_config_dir": "config/datasets",
   "capture_selection_dir": "config/capture",
-  "environment_binding_dir": "deploy",
-  "deployment_dir": "deploy",
+  "environment_binding_dir": "config/environments",
+  "deployment_dir": "fabric",
   "documentation_dir": "docs",
   "source_dir": "src",
   "tests_dir": "tests"
