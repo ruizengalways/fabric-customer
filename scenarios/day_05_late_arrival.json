@@ -1,0 +1,1 @@
+{"day":5,"slug":"late_arrival","facts":["C1001 late update has older source timestamp than delivery timestamp"],"expected":"source truth reflects the late update"}
