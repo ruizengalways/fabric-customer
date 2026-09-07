@@ -49,7 +49,7 @@ from fabric_data_framework.evidence.integration_runner import (
     IntegrationCheckPhysicalBinding,
 )
 
-from review_binding import load_control_plane_review_binding
+from support.review_binding import load_control_plane_review_binding
 
 
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
