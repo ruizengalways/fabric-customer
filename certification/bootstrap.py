@@ -13,8 +13,9 @@ import shutil
 import sys
 
 CERT_ROOT = Path(__file__).resolve().parent
-FABRIC_ITEMS_ROOT = CERT_ROOT / "fabric_items"
-sys.path.insert(0, str(CERT_ROOT))
+SUPPORT_ROOT = CERT_ROOT / "support"
+FABRIC_ITEMS_ROOT = CERT_ROOT / "fabric"
+sys.path.insert(0, str(SUPPORT_ROOT))
 sys.path.insert(0, str(FABRIC_ITEMS_ROOT))
 
 from bootstrap_identity import (

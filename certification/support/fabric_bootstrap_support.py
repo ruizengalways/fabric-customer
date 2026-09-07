@@ -10,16 +10,21 @@ import time
 from typing import Mapping
 from uuid import UUID
 
-FABRIC_ITEMS_ROOT = Path(__file__).resolve().parent / "fabric_items"
+CERT_ROOT = Path(__file__).resolve().parents[1]
+FABRIC_ITEMS_ROOT = CERT_ROOT / "fabric"
 import sys
 sys.path.insert(0, str(FABRIC_ITEMS_ROOT))
 
 from deploy_fabric_items import FabricApiClient, FabricDeploymentError
-from environment_config import CertificationEnvironmentConfig, NamedFabricItemConfig
-from onelake_staging import OneLakeDfsClient, staging_manifest
-from bootstrap_identity import BootstrapError, _az_token, _run
+try:
+    from .environment_config import CertificationEnvironmentConfig, NamedFabricItemConfig
+    from .onelake_staging import OneLakeDfsClient, staging_manifest
+    from .bootstrap_identity import BootstrapError, _az_token, _run
+except ImportError:  # pragma: no cover - direct-script compatibility
+    from environment_config import CertificationEnvironmentConfig, NamedFabricItemConfig
+    from onelake_staging import OneLakeDfsClient, staging_manifest
+    from bootstrap_identity import BootstrapError, _az_token, _run
 
-CERT_ROOT = Path(__file__).resolve().parent
 WAREHOUSE_FIXTURES = FABRIC_ITEMS_ROOT / "sql" / "warehouse-certification-fixtures.sql"
 CONTROL_PLANE_PROFILE = "fabric_sql_database_v1"
 ONELAKE_RESOURCE = "https://storage.azure.com/"
@@ -476,7 +481,7 @@ def _run_sql_bootstrap(
     output = build_root / "sql-bootstrap-result.json"
     command = [
         str(python),
-        str(CERT_ROOT / "sql_bootstrap.py"),
+        str(CERT_ROOT / "support" / "sql_bootstrap.py"),
         "--control-plane-server",
         control_plane_server,
         "--control-plane-database",

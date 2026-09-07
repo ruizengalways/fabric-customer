@@ -8,7 +8,7 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "certification"))
+sys.path.insert(0, str(ROOT / "certification" / "support"))
 
 from review_binding import load_control_plane_review_binding  # noqa: E402
 

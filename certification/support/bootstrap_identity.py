@@ -11,7 +11,7 @@ import subprocess
 import sys
 from urllib.parse import urlparse
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 CERT_ROOT = REPO_ROOT / "certification"
 CUSTOMER_REPOSITORY = "ruizengalways/fabric-customer"
 FRAMEWORK_PIN = CERT_ROOT / "framework-executable.json"

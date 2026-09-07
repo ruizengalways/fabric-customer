@@ -63,7 +63,7 @@ jobs:
           assert profile.allowed_sqlalchemy_dialects == ("mssql",)
           assert_enterprise_fabric_control_plane_profile("fabric_sql_database_v1")
 
-          root = Path("examples/pipeline_development/framework_0_4/execution-groups")
+          root = Path("config/orchestration/execution-groups")
           policies = load_execution_group_policies(root)
           assert {item.execution_group for item in policies} == {
               "health_full_refresh",

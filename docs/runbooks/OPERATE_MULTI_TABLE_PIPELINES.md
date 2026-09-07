@@ -1,18 +1,24 @@
-# Operate Multi-Table Fabric Pipelines
+# Runbook — Operate multi-table Fabric Pipelines
 
-This runbook is the normal business-operations path for Customer/domain Pipelines. It is not Framework release certification.
+This is the normal customer/domain operations path, not Framework release certification.
 
-Current production dependency remains:
+Production remains pinned to:
 
 ```text
 fabric-data-framework==0.3.0
 ```
 
-The execution-group policy examples under `examples/pipeline_development/framework_0_4/` are forward-looking 0.4 contracts. Do not move them into the production runtime or change the production pin before immutable Framework `v0.4.0` exists and migration is approved.
+Current source-controlled execution-group policy lives under:
+
+```text
+config/orchestration/execution-groups/
+```
+
+Do not create Framework-version policy directories. Upgrade the current contract in place through reviewed Git changes.
 
 ## 1. Product operating model
 
-A 100-table domain should not be one sequential mega-Pipeline and should not require one bespoke Pipeline per table. Group tables by operational semantics and SLA:
+A 100-table domain should not be one sequential mega-Pipeline and should not require one bespoke Pipeline per table. Group datasets by runtime semantics/SLA, for example:
 
 ```text
 health_full_refresh  50 FULL      -> REPLACE
@@ -21,7 +27,7 @@ health_scd1          20 WATERMARK -> SCD1
 health_debezium      10 CDC       -> UPSERT (Debezium/external CDC)
 ```
 
-Each parent Pipeline is thin:
+Each parent Pipeline stays thin:
 
 ```text
 resolve exact execution_group work
@@ -33,22 +39,20 @@ resolve exact execution_group work
 -> aggregate parent status
 ```
 
-The recommended parent policy is `FAIL_AT_END`. A failed table does not cancel independent siblings, but the parent still ends `FAILED` after all runnable work is terminal.
-
-This is the intended production failure boundary:
+Default parent policy is `FAIL_AT_END`: one failed dataset does not cancel independent siblings, but the parent ends `FAILED` after all runnable work reaches terminal state.
 
 ```text
-Dataset = unit of fault isolation and recovery
-Execution group / parent Pipeline = unit of scheduling and aggregate status
-Domain repo = source of WHAT to run
-Framework = source of HOW to execute/recover safely
+Dataset                     = fault-isolation/recovery unit
+Execution group/Pipeline    = scheduling + aggregate-status unit
+Customer repo               = WHAT to run
+Framework                   = HOW to execute/recover safely
 ```
 
-## 2. Source-controlled defaults and overrides
+## 2. Configuration precedence
 
-Shared operating defaults belong in one reviewed execution-group policy, not copied into 20 or 50 table configs and not edited ad hoc in the Fabric UI.
+Shared defaults belong in reviewed execution-group policy, not copied into dozens of DatasetConfig files and not maintained as hidden Fabric UI state.
 
-Framework 0.4 precedence is:
+Framework 0.4 contract precedence is:
 
 ```text
 DatasetConfig
@@ -57,234 +61,200 @@ DatasetConfig
 -> audited RuntimeOverride
 ```
 
-Use per-table override only for a real semantic exception. Examples:
+Use per-dataset override only for a real semantic exception. RuntimeOverride is temporary incident control; durable intended behavior returns to Git.
 
-- a regulated table can set `quarantine_enabled=false` so any bad row fails the dataset;
-- a high-volume reference table can have a larger approved quarantine budget;
-- a sensitive history table can use a much smaller quarantine threshold.
+## 3. DQ and quarantine
 
-RuntimeOverride is temporary incident control. Once the incident is resolved, put the durable intended value back in Git and retire the temporary override.
-
-## 3. DQ / quarantine production policy
-
-Recommended default is DQ enabled, quarantine enabled, governed full detail, plus an explicit tolerance budget:
+Recommended default:
 
 ```text
 enabled = true
 quarantine_enabled = true
 quarantine_detail_mode = FULL
-max_quarantine_rows = approved absolute ceiling
-max_quarantine_fraction = approved percentage ceiling
+max_quarantine_rows = reviewed absolute ceiling
+max_quarantine_fraction = reviewed percentage ceiling
 ```
 
-A few bad rows can be isolated while good rows continue only while the approved budget is respected. If either ceiling is exceeded:
+When either budget is exceeded:
 
 ```text
-persist immutable quarantine detail first
+persist immutable quarantine detail
 -> dataset FAIL
 -> do not commit target/state/watermark
 -> independent siblings continue
 -> parent eventually FAIL
 ```
 
-Full quarantined business rows may contain PHI/PII. They belong in a governed data-plane location with least-privilege ACL, approved encryption, retention and audit. The Control Plane should retain lineage, counts, reason summary and a stable reference, not duplicate full sensitive rows.
+Full PHI/PII quarantine payloads belong in governed data-plane storage. The Control Plane retains lineage/count/reason/reference metadata, not duplicate sensitive rows.
 
-Do not temporarily disable DQ or increase a threshold merely to make a failed batch green. Any emergency exception needs an owner, reason, expiry and subsequent Git correction.
+Do not disable DQ or inflate a threshold just to make a failed batch green.
 
-## 4. What to inspect after a failed parent Pipeline
+## 4. First inspection after parent failure
 
-Start with the parent `pipeline_run` and preserve its `pipeline_run_id`.
-
-Read:
+Preserve the `pipeline_run_id`, then inspect:
 
 ```text
-status
-error_code
-error_message
-started_at
-completed_at
+pipeline_run:
+  status
+  error_code
+  error_message
+  started_at
+  completed_at
+
+dataset_run:
+  dataset_id
+  status
+  attempt
+  error_code
+  error_message
+  retryable
+  row accounting
+  mutation counts
 ```
 
-Then inspect every `dataset_run` for that parent:
-
-```text
-dataset_id
-status
-attempt
-error_code
-error_message
-retryable
-row accounting
-mutation counts
-```
-
-For failed/quarantined datasets, drill into:
+For failed/quarantined datasets inspect as applicable:
 
 ```text
 step_run
 reconciliation_result
 quarantine_batch
 dataset_attempt_lineage
-target_operation / target_operation_event where applicable
-watermark / checkpoint state
+target_operation / target_operation_event
+watermark / checkpoint
 ```
 
-Do not infer semantic success only because a Fabric activity says `Completed`.
+A Fabric activity showing `Completed` is not enough to prove semantic success.
 
-## 5. Failure classification and repair
+## 5. Recovery classification
 
 Use the smallest safe recovery scope.
 
-| Observed condition | Default action | Why |
-|---|---|---|
-| explicit transient error and `retryable=true` | bounded `RETRY` with backoff | safe automatic recovery contract |
-| retry exhausted | investigate provider/capacity/connectivity, then operator-approved `RETRY` | repeated transient failure may no longer be transient |
-| DQ threshold exceeded | fix source data or reviewed rule, then quarantine `REPLAY` | retained bad rows are the exact recovery scope |
-| DQ failure with quarantine disabled | fix data/rule/config, then audited `RETRY` | no partial clean-subset acceptance is allowed |
-| reconciliation failure | compare source, Bronze, target, mapping and invariant before reprocess | retrying unchanged logic can reproduce corruption |
-| `BLOCKED_DEPENDENCY` | recover upstream first, then affected dependency chain | blocked child is not the root cause |
-| `UNKNOWN_COMMIT` / ambiguous target outcome | reconcile target-operation evidence before any retry | blind retry can duplicate mutation |
-| known bounded source/time gap | audited `BACKFILL` | scope should be explicit and reviewable |
-| authoritative reset is required | approved `FULL_REBUILD` | destructive/high-blast-radius path |
+| Condition | Default action |
+|---|---|
+| explicit transient error + `retryable=true` | bounded `RETRY` with backoff |
+| retry exhausted | investigate provider/capacity/connectivity, then approved `RETRY` |
+| DQ threshold exceeded | fix data/rule, then quarantine `REPLAY` |
+| DQ failure with quarantine disabled | fix data/rule/config, then audited `RETRY` |
+| reconciliation failure | investigate source/Bronze/target/mapping/invariants first |
+| `BLOCKED_DEPENDENCY` | recover upstream first |
+| `UNKNOWN_COMMIT` | reconcile target-operation evidence before any retry |
+| bounded known source/time gap | audited `BACKFILL` |
+| authoritative reset required | approved `FULL_REBUILD` |
 
-Never use whole-Pipeline blind retry as the default incident response.
+Whole-Pipeline **blind retry** is not the default incident response.
 
-## 6. Unknown commit decision tree
+## 6. `UNKNOWN_COMMIT`
 
-`UNKNOWN_COMMIT` is a special safety boundary.
+This is a special safety boundary:
 
 ```text
 operation outcome uncertain
-        |
-        v
-read operation journal + target evidence
-        |
-        +-- COMMITTED ------> mark/converge success; DO NOT write again
-        |
-        +-- NOT_COMMITTED --> safe bounded retry may proceed
-        |
-        +-- UNRESOLVED -----> stop automation; operator investigation
+-> read operation journal + target evidence
+
+COMMITTED
+  -> converge success; DO NOT write again
+
+NOT_COMMITTED
+  -> safe bounded retry may proceed
+
+UNRESOLVED
+  -> stop automation; operator investigation
 ```
 
-Do not guess from a client timeout. Do not retry because the Fabric UI looks failed. The mutation may already have committed.
+Never infer target outcome from a client timeout or Fabric UI activity status.
 
-For Warehouse ambiguous-COMMIT testing, only use the approved dedicated DEV evidence path. Never inject faults into a shared or PROD Warehouse.
+## 7. `RETRY`
 
-## 7. RETRY
+Use `RETRY` when the original logical scope remains correct and execution is safe to repeat.
 
-Use `RETRY` when the original logical scope is still correct and the failure is safe to execute again.
+Required properties:
 
-Required characteristics:
+```text
+immutable root/previous attempt lineage
+bounded attempts
+provider-appropriate backoff
+deterministic/idempotent target semantics
+failed attempt does not advance checkpoint/watermark
+unknown target outcome reconciled first
+```
 
-- immutable root/previous attempt lineage;
-- bounded attempts;
-- exponential or provider-appropriate backoff;
-- deterministic/idempotent target semantics;
-- no checkpoint/watermark advancement from a failed attempt;
-- unknown target outcome reconciled before retry.
+Do not manually reset a watermark simply to force retry.
 
-Do not manually reset watermark just to force a retry.
+## 8. `REPLAY`
 
-## 8. REPLAY
-
-Use `REPLAY` for retained quarantine payload after the underlying data or DQ rule has been corrected and reviewed.
-
-Safe sequence:
+Use `REPLAY` for retained quarantine payload after data/rule correction:
 
 ```text
 identify exact quarantine_id(s)
--> validate immutable source_reference / payload identity
--> create audited ReprocessRequest(run_mode=REPLAY)
--> execute current approved mapping/DQ/apply path
--> require target + reconciliation gate PASS
--> only then mark original quarantine rows replayed
+-> validate immutable payload/source identity
+-> audited ReprocessRequest(run_mode=REPLAY)
+-> current approved mapping/DQ/apply
+-> target + reconciliation PASS
+-> mark original quarantine rows replayed
 ```
 
-Original quarantine evidence is retained for audit; replay must not delete history merely because the replay succeeded.
+Original quarantine evidence remains for audit.
 
-## 9. BACKFILL
+## 9. `BACKFILL`
 
-Use `BACKFILL` only for a known bounded omission, for example a defined date/time range or known source partition.
+Use only for a known bounded omission such as a date range, partition or source-position interval. Record reason/requestor/approved scope/expected impact before execution and reconcile exactly that scope afterward.
 
-Before execution record:
+## 10. `FULL_REBUILD`
+
+`FULL_REBUILD` is destructive/high blast radius, not a convenient retry mode. Before use verify source reconstructability, delete/history semantics, downstream impact, capacity/window, rollback path and absence of unresolved ambiguous commit.
+
+For SCD2, never claim historical fidelity the source cannot reproduce.
+
+## 11. FULL / REPLACE repair
+
+A partial source snapshot must not replace a good target.
 
 ```text
-reason
-requested_by
-approved scope
-start/end or source positions
-expected target impact
+verify extract completeness
+-> inspect DQ/reconciliation
+-> prove target replace did not commit when gate failed
+-> correct source/connection/rule
+-> rerun only affected dataset/dependency chain
 ```
 
-After execution reconcile the bounded scope and confirm that normal forward checkpoint semantics remain intact.
+Do not loosen reconciliation to accept an incomplete snapshot.
 
-## 10. FULL_REBUILD
+## 12. WATERMARK / SCD1 / SCD2 repair
 
-`FULL_REBUILD` is not a convenient retry mode. Use it only when the target is authoritatively reconstructable and a full reset is the approved repair.
-
-Before a rebuild verify:
-
-- source is complete enough to reconstruct the target;
-- delete/history semantics are understood;
-- downstream blast radius is known;
-- capacity/window is approved;
-- restore/rollback path is understood;
-- the current failure is not an unresolved ambiguous commit.
-
-For SCD2, a rebuild can change history if the source cannot reproduce historical change fidelity. Never claim historical fidelity the source does not possess.
-
-## 11. FULL / REPLACE specific repair
-
-FULL snapshot ingestion has a destructive-risk guard: an incomplete source snapshot must not silently replace a good target.
-
-When a full-refresh table fails:
-
-1. confirm source extract completeness and expected row-count/order indicators;
-2. inspect DQ and reconciliation evidence;
-3. confirm target replace did not commit if the gate failed;
-4. correct source/connection/rule issue;
-5. rerun only the affected table or affected dependency chain.
-
-If the source produced a partial snapshot, fix capture completeness. Do not loosen reconciliation to accept it.
-
-## 12. WATERMARK / SCD1 / SCD2 specific repair
-
-For watermark tables check:
+Inspect:
 
 ```text
 watermark before
 captured upper position
-tie breaker / overlap semantics
+tie-breaker/overlap semantics
 accepted + quarantined rows
 target mutation result
 reconciliation
 watermark after
 ```
 
-Watermark advances only after the semantic commit gate passes. If a failed run advanced state without proven target + reconciliation success, treat it as a data-integrity incident rather than a normal retry.
+Watermark advances only after semantic commit gate PASS. A failed run that advanced state without proven target + reconciliation success is a data-integrity incident.
 
-For SCD2 additionally verify current-row uniqueness, effective interval ordering and business-key history invariants.
+For SCD2 also validate current-row uniqueness, effective interval ordering and business-key history invariants.
 
-## 13. Debezium / external CDC specific repair
+## 13. Debezium / external CDC repair
 
-The 10 CDC examples use Debezium/external CDC semantics. Their progress/checkpoint owner is external, so Framework must not invent a second competing offset owner.
+External CDC owns its own progress/checkpoint. Framework must not invent a competing offset owner.
 
 Check:
 
 ```text
 connector/task health
-source log retention
+source-log retention
 partition/order position
 last durable external checkpoint
 Framework Bronze event identity/dedupe
 apply/reconciliation result
 ```
 
-If source log retention has already removed the missing event range, do not claim lossless replay. Escalate to an approved snapshot/reseed/reconciliation plan and document the fidelity boundary.
+If source-log retention has removed the missing range, do not claim lossless replay. Use an approved snapshot/reseed/reconciliation plan and document the fidelity boundary.
 
 ## 14. Dependency recovery
-
-A downstream `BLOCKED` dataset should normally not be manually started before its failed prerequisite is recovered.
 
 Example:
 
@@ -294,46 +264,44 @@ encounter_dim BLOCKED (depends on patient_master)
 claim_fact PASS (independent)
 ```
 
-Recover `patient_master`, prove its terminal success, then run the affected dependency chain. Do not rerun `claim_fact` merely because it shared the same parent Pipeline.
+Recover `patient_master`, prove success, then run the affected dependency chain. Do not rerun independent `claim_fact` just because it shared the same parent.
 
 ## 15. Concurrency and capacity
 
-`max_concurrency` is a safety cap, not a performance target. Tune from measured source throttling, Fabric capacity, Warehouse/Spark concurrency and SLA evidence.
-
-Industry-safe tuning process:
+`max_concurrency` is a safety cap, not a performance target:
 
 ```text
 start bounded
--> observe source throttling / CU / queueing / duration
+-> observe source throttling / Fabric capacity / queueing / duration
 -> change one source-controlled cap
 -> test in DEV/UAT
 -> promote through Git
 ```
 
-Never solve capacity pressure by disabling reconciliation or DQ.
+Never solve capacity pressure by disabling DQ or reconciliation.
 
-## 16. Alerts and operational SLOs
+## 16. Minimum alerts
 
-At minimum alert on:
+Alert on at least:
 
-- parent Pipeline `FAILED`;
-- critical/high dataset failure;
-- retry exhausted;
-- `UNKNOWN_COMMIT` unresolved;
-- DQ quarantine budget exceeded;
-- quarantine payload writer unavailable;
-- stale watermark/checkpoint beyond domain SLA;
-- abnormal blocked-dataset count;
-- reconciliation fail;
-- CDC connector/checkpoint lag beyond agreed RPO.
+```text
+parent Pipeline FAILED
+critical/high dataset failure
+retry exhausted
+UNKNOWN_COMMIT unresolved
+DQ quarantine budget exceeded
+quarantine writer unavailable
+stale watermark/checkpoint beyond SLA
+abnormal BLOCKED count
+reconciliation failure
+CDC lag beyond agreed RPO
+```
 
-Numeric thresholds belong to the domain SLO and capacity baseline; do not copy arbitrary numbers between domains.
+Numeric thresholds are domain SLO/capacity decisions, not global copy-paste defaults.
 
 ## 17. Incident closure
 
-An incident is not closed merely because the next Pipeline turns green.
-
-Close only after:
+An incident is not closed merely because the next Pipeline is green. Close only after:
 
 ```text
 root cause identified
@@ -341,27 +309,21 @@ repair/reprocess scope recorded
 reconciliation PASS for recovered scope
 no unresolved commit remains
 checkpoint/watermark is semantically correct
-quarantine/replay lineage is retained
-any temporary RuntimeOverride is removed or promoted to reviewed Git config
+quarantine/replay lineage retained
+temporary RuntimeOverride removed or promoted to reviewed Git config
 monitoring confirms normal forward progress
 ```
 
-For material incidents, record whether preventive action belongs in domain metadata, source system, Framework generic capability, Fabric infrastructure or enterprise controls.
-
-## 18. New-project checklist
-
-For a new 100-table project:
+## 18. New-domain reminder
 
 ```text
 fabric-framework project-init <repo> --domain <domain>
--> author DatasetConfig / semantic selections
--> assign execution_group by runtime semantics/SLA
+-> DatasetConfig + semantic selections
+-> config/orchestration/execution-groups
 -> fabric-framework project-validate <repo>
--> add reviewed execution-group policy when Framework 0.4 is an approved dependency
--> CI
--> DEV/UAT deployment
--> controlled failure/recovery tests
--> PROD promotion only after domain operational acceptance
+-> domain CI
+-> DEV/UAT failure/recovery tests
+-> PROD only after operational acceptance
 ```
 
-Keep repo boundaries based on ownership, security/compliance and release lifecycle, not on whether a table is FULL, SCD1, SCD2 or Debezium.
+Repository boundaries follow ownership/security/compliance/release lifecycle, not FULL/SCD1/SCD2/Debezium technique.
