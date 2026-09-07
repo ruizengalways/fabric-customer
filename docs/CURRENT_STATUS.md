@@ -40,19 +40,15 @@ default_auth:
   key_vault_optional: true
 
 certification_bootstrap:
+  source_on_main: true
+  verified_feature_merge_sha: be9ac81ca7016dbad09b34bc8f03fb6adebaa421
+  verified_customer_main_ci: 34072737246
+  verified_customer_main_certification_contract_ci: 34072737241
   preferred_command: python certification/bootstrap.py --apply --environment DEV
   environment_is_fabric_environment_item: false
   environment_config: certification/environments/DEV.json
   repeated_sql_server_database_cli_args_required: false
-  lakehouse_resolve_or_create: true
-  fabric_sql_database_resolve_or_create: true
-  warehouse_resolve_or_create: true
-  copy_job_resolve_or_create: true
-  spark_job_resolve_or_create: true
-  seed_spark_job_resolve_or_create: true
-  runner_notebook_deploy: true
-  worker_notebook_deploy: true
-  pipeline_deploy: true
+  resource_mode: resolve_or_create
   exact_framework_artifact_staging: true
   exact_customer_input_bundle_staging: true
   provider_source_seed: setup_only_not_evidence
@@ -68,17 +64,17 @@ real_fabric_state:
   current_framework_real_fabric_certification_executed: false
 ```
 
-The source capability above does **not** claim that a company Fabric workspace has already been mutated. A real bootstrap result must supply the item UUIDs/actions, and Framework-generated evidence must supply execution outcomes.
+The verified source/CI capability above does **not** claim that a company Fabric workspace has already been mutated. Real deployment/execution state must come from retained bootstrap and Framework evidence.
 
 ## Exact Framework executable for certification
 
-Machine-readable source:
+Machine-readable selector:
 
 ```text
 certification/framework-executable.json
 ```
 
-Current identity:
+Current executable identity:
 
 ```text
 Framework executable SHA   17fbbd8ed2afb14771748a25d3e12d9bf63fe986
@@ -91,29 +87,15 @@ selected/frozen            false
 real-Fabric result         NOT YET
 ```
 
-`framework-executable.json` selects the exact next executable bytes and validates their successful main-CI provenance. It is not a candidate freeze.
+`framework-executable.json` verifies the exact successful-main artifact used for the next certification run. It does not freeze a candidate.
 
 ## Environment is the operator key
 
-`--environment DEV` selects:
+`--environment DEV` selects `certification/environments/DEV.json`. It does **not** create or use a Fabric Environment item.
 
-```text
-certification/environments/DEV.json
-```
+The environment document contains only non-secret physical identity/policy: workspace UUID, exact display names and `create_if_missing` policy for the certification Lakehouse, Fabric SQL Database, Warehouse, Copy/Spark/seed jobs, runner/worker Notebooks and child Pipeline, plus bounded bootstrap mutation policy.
 
-It does **not** create/use a Fabric Environment item.
-
-The environment document contains only non-secret physical identity and policy:
-
-```text
-workspace UUID
-exact display names + create_if_missing for Lakehouse / SQL Database / Warehouse
-exact display names + create_if_missing for repository-owned Copy/Spark/seed jobs
-exact display names + create_if_missing for runner/worker/Pipeline
-bounded bootstrap mutation policy
-```
-
-Only `.example.json` templates ship without a real workspace identity. Copy the matching example, replace the intentionally invalid all-zero workspace UUID, review, and commit the real `DEV.json`/`UAT.json` once.
+Only `.example.json` templates ship with an intentionally invalid all-zero workspace UUID. Copy the example, replace the UUID with the real isolated workspace, review it, and commit `DEV.json` once.
 
 Normal operators no longer repeat:
 
@@ -124,7 +106,7 @@ Normal operators no longer repeat:
 --warehouse-database
 ```
 
-Those SQL targets are discovered from Fabric REST using the actual resolved items.
+Those SQL targets are discovered from the actual resolved Fabric items.
 
 ## One-click bootstrap boundary
 
@@ -153,22 +135,22 @@ clean exact Customer source
 -> STOP at bootstrap_status=READY, certification_result=NOT_RUN
 ```
 
-Bootstrap never enables live certification authorization flags and never writes PASS/release-ready state. A successful preparation deliberately remains `certification_result = NOT_RUN`.
+Bootstrap never enables live certification authorization flags and never manufactures PASS, freeze, release-ready, or release-authorized state.
 
-## Repository-owned Copy/Spark provider items
+## Repository-owned provider path
 
-The one-click path now creates/updates real provider definitions instead of asking an operator to paste pre-existing IDs:
+The one-click path creates/updates real provider definitions rather than asking the operator to paste pre-existing IDs:
 
 ```text
 Copy Job:
-  dbo.cert_copy_source -> dbo.cert_copy_landing in certification Lakehouse
+  dbo.cert_copy_source -> dbo.cert_copy_landing
 
 Spark Job Definition:
-  reads dbo.cert_spark_source with Framework-supplied bounds
-  -> writes dbo.cert_spark_landing in certification Lakehouse
+  dbo.cert_spark_source + Framework-supplied bounds
+  -> dbo.cert_spark_landing
 ```
 
-The seed Spark job only prepares the source Delta tables. Real Copy/Spark certification remains a later explicitly authorized Framework evidence stage. Provider `Completed` alone is not PASS.
+The seed Spark job only prepares source Delta tables. Real Copy/Spark certification remains a later explicitly authorized Framework evidence stage. Provider `Completed` alone is not PASS.
 
 ## Current strict blockers
 
@@ -184,24 +166,22 @@ Therefore:
 candidate_status: not_frozen
 release_allowed: false
 strict_release_ready: false
-release_authorized = false
+release_authorized: false
 ```
-
-A bootstrap `READY` or bounded certification PASS does not freeze/authorize a release.
 
 ## Production boundary
 
-Production remains:
-
-```text
-fabric-data-framework==0.3.0
-```
-
-Do not change it until immutable Framework `v0.4.0` exists and strict release governance explicitly authorizes migration.
+Production remains pinned to `fabric-data-framework==0.3.0`. Do not change it until immutable Framework `v0.4.0` exists and strict release governance explicitly authorizes migration.
 
 ## Normal customer-project baseline
 
-The static framework-next project-contract compatibility pin remains `148e02e3fff7861f238296e7554815a6fd49dd0a`; it is separate from the certification executable identity.
+The static framework-next project-contract compatibility pin remains:
+
+```text
+148e02e3fff7861f238296e7554815a6fd49dd0a
+```
+
+It is separate from the certification executable identity.
 
 The normal project workflow remains:
 
@@ -214,20 +194,21 @@ fabric-framework project-init <repo> --domain <domain>
 -> DEV -> UAT -> PROD using the same logical topology
 ```
 
-The enterprise reference remains 100 tables: 50 FULL/REPLACE, 20 WATERMARK/SCD2, 20 WATERMARK/SCD1, 10 CDC/UPSERT using Debezium / external CDC. That fixture proves onboarding/config scale, not live Fabric performance.
+The enterprise reference remains 100 tables: 50 FULL/REPLACE, 20 WATERMARK/SCD2, 20 WATERMARK/SCD1, and 10 CDC/UPSERT using Debezium / external CDC. That fixture proves onboarding/config scale, not live Fabric performance.
 
 ## Exact next real boundary
 
-After this source is on Customer `main` and CI is green:
+Customer one-click source is now on `main` and both main CI contracts are green. The next boundary is real isolated DEV Fabric:
 
 ```text
 create/commit certification/environments/DEV.json with the real isolated DEV workspace UUID
 -> az login + gh auth
 -> python certification/bootstrap.py --apply --environment DEV
 -> retain genuine bootstrap-result.json
--> run framework-certification-runner bounded/read-safe first
--> STOP on real FAIL
+-> open/run framework-certification-runner bounded/read-safe first
+-> STOP on any real FAIL
 -> explicitly authorize live stages only when prerequisites are ready
+-> retain genuine Framework evidence
 ```
 
 No current-source live bootstrap/certification evidence exists yet.
