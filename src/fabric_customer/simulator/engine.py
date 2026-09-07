@@ -11,7 +11,6 @@ from typing import Any
 
 from .scenarios import scenario_catalog
 
-
 CHECKSUM_FILE = "SHA256SUMS"
 WORKLOAD_FILE = "WORKLOAD.json"
 
