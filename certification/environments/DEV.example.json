@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "environment": "DEV",
+  "workspace_id": "00000000-0000-0000-0000-000000000000",
+  "lakehouse": {"display_name": "framework-certification-lakehouse", "create_if_missing": true},
+  "control_plane": {"display_name": "framework-certification-control", "create_if_missing": true},
+  "warehouse": {"display_name": "framework-certification-warehouse", "create_if_missing": true},
+  "copy_job": {"display_name": "framework-certification-copy", "create_if_missing": true},
+  "spark_job": {"display_name": "framework-certification-spark", "create_if_missing": true},
+  "seed_spark_job": {"display_name": "framework-certification-seed", "create_if_missing": true},
+  "runner_notebook": {"display_name": "framework-certification-runner", "create_if_missing": true},
+  "worker_notebook": {"display_name": "framework-certification-worker", "create_if_missing": true},
+  "child_pipeline": {"display_name": "framework-certification-child", "create_if_missing": true},
+  "mutations": {
+    "seed_provider_sources": true,
+    "apply_warehouse_fixtures": true,
+    "apply_control_plane_schema": true,
+    "materialize_control_plane_metadata": true
+  },
+  "onelake_endpoint": "https://onelake.dfs.fabric.microsoft.com"
+}
