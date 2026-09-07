@@ -113,7 +113,7 @@ def default_config_path(environment: str, *, root: Path | None = None) -> Path:
     env = environment.upper()
     if env not in _ALLOWED_ENVIRONMENTS:
         raise ValueError("certification bootstrap environment must be DEV or UAT")
-    base = Path("certification/environments") if root is None else root
+    base = Path("certification/config/environments") if root is None else root
     return base / f"{env}.json"
 
 
