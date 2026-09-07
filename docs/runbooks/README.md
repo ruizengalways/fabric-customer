@@ -1,24 +1,23 @@
 # Runbooks
 
-Use these documents for current operations. Historical PR/checkpoint narratives are intentionally not kept here; Git history already preserves them.
+Use these documents for current operations. Historical PR/checkpoint narratives are intentionally not kept here; Git history preserves them.
 
 ## New conversation recovery
 
-Read only:
+Read:
 
 ```text
 1. docs/CURRENT_STATUS.md
-2. docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md
-3. fabric-data-framework/docs/machine/STATE.md
+2. docs/ARCHITECTURE.md
+3. the task-specific runbook below
+4. fabric-data-framework/docs/machine/STATE.md only when Framework release/certification identity matters
 ```
-
-Then open a task-specific runbook below.
 
 ## Build a domain
 
 `BUILD_NEW_DOMAIN_PROJECT.md`
 
-End-to-end domain bootstrap and onboarding: `project-init`, source inventory, DatasetConfig, semantic selections, the 100-table Health reference, Debezium/external CDC, `project-validate`, PR/CI and DEV -> UAT -> PROD promotion.
+Current end-to-end onboarding: `project-init`, source inventory, DatasetConfig/semantic selections, execution groups under `config/orchestration/`, the 100-table Health reference, Debezium/external CDC, `project-validate`, PR/CI and DEV -> UAT -> PROD promotion.
 
 ## Enterprise topology
 
@@ -37,19 +36,25 @@ Warehouse                        = optional SQL-first Gold serving
 
 `OPERATE_MULTI_TABLE_PIPELINES.md`
 
-Execution groups, fail-at-end behavior, dataset failure isolation, blocked dependencies, DQ/quarantine handling and conservative retry/replay/backfill/rebuild decisions.
+Execution groups, `FAIL_AT_END`, dataset failure isolation, dependency blocking, DQ/quarantine and conservative `RETRY` / `REPLAY` / `BACKFILL` / `FULL_REBUILD` decisions.
 
-## Deploy certification Fabric items
+## One-click certification preparation
 
 `DEPLOY_CERTIFICATION_FABRIC_ITEMS.md`
 
-Creates/updates the repository-owned certification Notebook and Data Pipeline in an isolated DEV/UAT workspace. Default path uses Azure CLI user authentication for Fabric REST and signed-in Fabric user Entra authentication for SQL. Key Vault remains optional.
+Preferred command:
 
-## Test the current Framework in company Fabric
+```powershell
+python certification/bootstrap.py --apply --environment DEV
+```
+
+Certification config lives under `certification/config/`; certification-only Fabric definitions live under `certification/fabric/`. Bootstrap stops at `READY / NOT_RUN`.
+
+## Test current Framework in company Fabric
 
 `TEST_FRAMEWORK_IN_COMPANY_FABRIC.md`
 
-Current exact-artifact real-Fabric path. Run bounded certification first, stop on a real FAIL, and only then continue approved live Control Plane/Pipeline/Copy/Spark/Warehouse stages.
+Run bounded/read-safe certification first, stop on a real FAIL, and only then enable approved live Control Plane/Pipeline/Copy/Spark/Warehouse stages.
 
 ## Review Control Plane evidence
 
@@ -59,4 +64,4 @@ Use only when binding genuine external Control Plane evidence into the strict re
 
 ## Rule
 
-Do not add PR-number checkpoint runbooks or duplicate current-state history. Update `docs/CURRENT_STATUS.md` with current facts and rely on Git history for old implementation details.
+Do not add PR-number checkpoint runbooks, version-named current directories or duplicate current-state history. Update `docs/CURRENT_STATUS.md` with current facts and rely on Git history for old implementation details.
