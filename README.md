@@ -1,90 +1,65 @@
 # fabric-customer
 
-Reference domain repository for the Enterprise Microsoft Fabric Data Engineering Platform.
+Fabric-native, framework-agnostic realistic customer/source-system simulator for Microsoft Fabric.
 
-This repo owns customer/domain **WHAT**: DatasetConfig, semantic capture selections, mappings, DQ/reconciliation rules, execution-group policy, non-secret environment bindings, certification inputs and domain tests. Generic execution **HOW** belongs in `fabric-data-framework`.
-
-## Start here
-
-For a new conversation or engineer, read:
-
-1. `docs/CURRENT_STATUS.md` — current truth and next boundary.
-2. `docs/runbooks/BUILD_NEW_DOMAIN_PROJECT.md` — onboard a domain.
-3. `docs/runbooks/OPERATE_MULTI_TABLE_PIPELINES.md` — operate/recover pipelines.
-4. `docs/runbooks/DEPLOY_CERTIFICATION_FABRIC_ITEMS.md` — one-click certification preparation.
-5. `docs/runbooks/TEST_FRAMEWORK_IN_COMPANY_FABRIC.md` — real-Fabric execution.
-
-Git history is history; do not use old PR timelines to reconstruct current state.
-
-## Enterprise topology
-
-DEV/UAT/PROD use the same logical architecture:
+## Architectural invariant
 
 ```text
-Fabric SQL Database = Framework operational Control Plane
-Lakehouse / OneLake = Bronze / Silver / Gold business data + quarantine detail
-Fabric Warehouse    = optional SQL-first Gold / dimensional serving
+fabric-customer MAY depend on Microsoft Fabric capabilities.
+fabric-customer MUST NOT depend on fabric-data-framework implementation.
 ```
 
-Canonical Control Plane profile: `fabric_sql_database_v1`.
+This repository answers **what happened in the source system?** It owns synthetic source systems, deterministic source changes, production-like delivery patterns, Fabric-native source/landing patterns and expected business truth. A downstream framework owns ingestion, bronze/silver, merge, watermark, SCD, CDC interpretation, audit, retries and idempotency.
 
-## Version boundary
+Framework certification is not owned here. Installed-wheel acceptance belongs to `fabric-data-framework`.
 
-Production stays pinned to:
+## Deterministic scenario
 
-```text
-fabric-data-framework==0.3.0
+The canonical seed is `20260907` and the representative CRM scenario is:
+
+| Day | Source fact |
+|---:|---|
+| 1 | initial snapshot |
+| 2 | insert + update |
+| 3 | hard delete |
+| 4 | duplicate row/event delivery |
+| 5 | late-arriving update |
+| 6 | schema v2 adds `preferred_language` |
+| 7 | source correction + replay |
+
+Generate all source deliveries and framework-neutral truth:
+
+```bash
+python -m pip install -e '.[dev]'
+fabric-customer materialize --through-day 7 --output build/customer-scenario
 ```
 
-The static framework-next project-contract lane remains pinned to `148e02e3fff7861f238296e7554815a6fd49dd0a` for `project-init` / `project-validate` compatibility only.
+Reset and replay:
 
-Framework 0.4 certification uses the exact executable recorded in `certification/framework-executable.json` and `docs/CURRENT_STATUS.md`. Certification source/CI does not authorize a production dependency change.
-
-## Normal domain workflow
-
-```text
-fabric-framework project-init <repo> --domain <domain>
--> DatasetConfig / source semantics / domain rules
--> orchestration.execution_group
--> fabric-framework project-validate <repo>
--> GitHub CI
--> DEV -> UAT -> PROD with environment-local bindings
+```bash
+fabric-customer reset --output build/customer-scenario
+fabric-customer replay 7 --output build/customer-scenario
 ```
 
-The enterprise reference models 100 tables: 50 FULL/REPLACE, 20 WATERMARK/SCD2, 20 WATERMARK/SCD1 and 10 CDC/UPSERT using Debezium / external CDC. It proves onboarding/configuration scale, not performance.
+Generated source feeds are separated into snapshot, incremental and Debezium-style CDC paths. Expected truth is separated into `expected/current_state`, `expected/history` and `expected/source_events`.
 
-## Certification — preferred path
+## Fabric-native use
 
-The normal preparation command is:
+Install the customer wheel into a Fabric Environment, attach `fabric/notebooks/source_simulator.py` to a Lakehouse, and run it to materialize deterministic source files under `Files/fabric-customer`. A Fabric Pipeline may run that notebook and a Copy Activity may move those source files into a separate landing area. `fabric/sql/source_warehouse_seed.sql` is an optional Warehouse source fixture.
 
-```powershell
-python certification/bootstrap.py --apply --environment DEV
-```
+See:
 
-`DEV` selects `certification/environments/DEV.json`; it is not a Fabric Environment item. After the one-time non-secret workspace binding is committed, bootstrap resolves/creates the dedicated Lakehouse, Fabric SQL Database, Warehouse, real Copy/Spark provider items, runner/worker/Pipeline, stages exact Framework + Customer bytes to OneLake, seeds real provider source Delta tables, and initializes dedicated SQL fixtures/schema/metadata.
+- `docs/architecture.md`
+- `docs/source-simulator-design.md`
+- `docs/scenario-catalog.md`
+- `docs/fabric-setup-runbook.md`
+- `docs/framework-testing-runbook.md`
+- `docs/NEW_PROJECT_RUNBOOK.md`
 
-The operator does not repeatedly pass SQL server/database values; bootstrap discovers them from the actual Fabric items.
+## Scale model
 
-Bootstrap deliberately stops at:
+The simulator starts with representative sources rather than 100 toy implementations. `source_systems/catalog.json` defines a scale target of 100 tables: 50 full snapshots, 20 incremental current-state sources, 20 history-sensitive incremental sources and 10 Debezium CDC sources. New source tables extend the same source contracts without introducing downstream framework configuration.
 
-```text
-bootstrap_status = READY
-certification_result = NOT_RUN
-release_authorized = false
-```
+## Compatibility note
 
-Live certification remains explicit and fail-closed. Key Vault is optional. Real deployment, real execution, candidate freeze and release authorization are separate gates.
-
-## Pipeline operating model
-
-The reference product behavior remains fail-at-end:
-
-```text
-one dataset FAIL
--> independent siblings continue
--> dependents BLOCKED
--> runnable work reaches terminal state
--> parent Pipeline fails at the end
-```
-
-See `docs/runbooks/OPERATE_MULTI_TABLE_PIPELINES.md`.
+Version `0.2.0` intentionally removes the old runtime dependency on `fabric-data-framework`, customer-owned framework certification, and framework-specific DatasetConfig/deployment examples. The helper name `load_customer_config()` remains temporarily available but now returns a framework-neutral CRM source definition. Consumers that relied on the old DatasetConfig object must move their framework adapter/configuration into the consuming framework project.

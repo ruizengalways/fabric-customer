@@ -1,164 +1,41 @@
-name: customer-ci
+name: customer-simulator-ci
 
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, "refactor/**"]
 
 permissions:
   contents: read
 
-env:
-  # Historical project-contract compatibility lane. Keep this exact SHA stable;
-  # current 0.4 certification bytes are tracked independently in
-  # certification-contract.yml.
-  FRAMEWORK_NEXT_SHA: 148e02e3fff7861f238296e7554815a6fd49dd0a
-
 jobs:
-  source-contract:
-    name: source-metadata-and-wheel
+  test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Customer
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: "3.13"
-      - name: Validate exact framework pin and metadata
-        run: python scripts/validate_metadata.py
-      - name: Validate canonical documentation consistency
-        run: python scripts/validate_docs.py
-      - name: Validate 100-table bulk onboarding manifest
-        run: |
-          python scripts/scaffold_from_manifest.py \
-            --manifest examples/enterprise_100_table/health_100_tables.csv \
-            --output build/health-manifest-preview \
-            --expect-count 100
-      - name: Compile Customer source
-        run: python -m compileall -q src scripts tests
-      - name: Build Customer wheel without resolving framework dependency
-        run: |
-          python -m pip install "setuptools>=77"
-          python -m pip wheel . --no-deps --no-build-isolation -w dist
-          (cd dist && sha256sum *.whl | tee SHA256SUMS)
-      - name: Upload Customer wheel
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: customer-wheel-${{ github.sha }}
-          path: dist/
-          if-no-files-found: error
-          retention-days: 14
-
-  framework-integration:
-    name: exact-framework-integration
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Customer
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
-        with:
-          python-version: "3.13"
-      - name: Download and verify exact framework release
-        run: |
-          mkdir framework-dist
-          BASE_URL="https://github.com/ruizengalways/fabric-data-framework/releases/download/v0.3.0"
-          curl --fail --location --retry 3 \
-            --output framework-dist/fabric_data_framework-0.3.0-py3-none-any.whl \
-            "${BASE_URL}/fabric_data_framework-0.3.0-py3-none-any.whl"
-          curl --fail --location --retry 3 \
-            --output framework-dist/SHA256SUMS \
-            "${BASE_URL}/SHA256SUMS"
-          (cd framework-dist && sha256sum -c SHA256SUMS)
-      - name: Install exact framework release and Customer
-        run: |
-          python -m pip install framework-dist/fabric_data_framework-0.3.0-py3-none-any.whl
-          python -m pip install -e ".[dev]"
-          python -m pip check
-      - name: Run cross-package tests
-        run: pytest -q
-      - name: Build release manifest contract
-        run: |
-          fabric-framework release-manifest \
-            --domain customer \
-            --domain-release-version 0.1.0 \
-            --domain-git-sha "${GITHUB_SHA}" \
-            --framework-version 0.3.0 \
-            --config-dir config/datasets \
-            --build-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
-            --output release-manifest.json
-          fabric-framework deployment-plan --manifest release-manifest.json --bindings deploy/bindings.dev.json --output dev-plan.json
-          fabric-framework deployment-plan --manifest release-manifest.json --bindings deploy/bindings.uat.json --output uat-plan.json
-          fabric-framework deployment-plan --manifest release-manifest.json --bindings deploy/bindings.prod.json --output prod-plan.json
-
-  framework-next-project-contract:
-    name: framework-next-project-contract
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Customer
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Checkout exact framework-next source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          repository: ruizengalways/fabric-data-framework
-          ref: ${{ env.FRAMEWORK_NEXT_SHA }}
-          path: framework-next
-      - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
-        with:
-          python-version: "3.13"
-      - name: Install exact framework-next source only
-        run: |
-          python -m pip install ./framework-next
-          python -m pip check
-      - name: Validate Customer project contract
-        run: |
-          mkdir -p build
-          fabric-framework project-validate . \
-            --output build/customer-project-validation.json
-      - name: Build and validate 100-table Health project
-        run: |
-          fabric-framework project-init build/health-project --domain health
-          python scripts/scaffold_from_manifest.py \
-            --manifest examples/enterprise_100_table/health_100_tables.csv \
-            --output build/health-project/config/datasets \
-            --expect-count 100 \
-            --framework-next \
-            --semantic-selections-output build/health-project/config/capture/semantic-selections.json \
-            --write
-          fabric-framework project-validate build/health-project \
-            --output build/health-project-validation.json
-      - name: Assert Health workload contract
+      - name: Install simulator only
+        run: python -m pip install -e ".[dev]"
+      - name: Assert framework is not installed as a dependency
         run: |
           python - <<'PY'
-          import json
-          from pathlib import Path
-
-          report = json.loads(Path("build/health-project-validation.json").read_text())
-          assert report["dataset_count"] == 100
-          assert report["semantic_selection_count"] == 100
-
-          def counts(name):
-              return {item["value"]: item["count"] for item in report[name]}
-
-          assert counts("capture_strategies") == {"CDC": 10, "FULL": 50, "WATERMARK": 40}
-          assert counts("apply_strategies") == {"REPLACE": 50, "SCD1": 20, "SCD2": 20, "UPSERT": 10}
-          assert counts("execution_groups") == {
-              "health_debezium": 10,
-              "health_full_refresh": 50,
-              "health_scd1": 20,
-              "health_scd2": 20,
-          }
-          assert counts("capture_engines") == {"EXTERNAL_CDC": 10, "SPARK": 90}
-          assert counts("apply_engines") == {"SPARK": 100}
+          import importlib.util
+          assert importlib.util.find_spec("fabric_data_framework") is None
           PY
-      - name: Upload project validation reports
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: framework-next-project-validation-${{ github.sha }}
-          path: |
-            build/customer-project-validation.json
-            build/health-project-validation.json
-          if-no-files-found: error
-          retention-days: 14
+      - name: Unit and architecture tests
+        run: pytest -q
+      - name: Static correctness checks
+        run: ruff check --isolated --select E9,F63,F7,F82 src tests
+      - name: Build wheel
+        run: |
+          python -m pip install build
+          python -m build --wheel
+          python -m pip install --force-reinstall --no-deps dist/*.whl
+          python -m pip check
+      - name: Deterministic smoke generation
+        run: |
+          rm -rf build/customer-scenario
+          fabric-customer materialize --through-day 7 --output build/customer-scenario
+          test -f build/customer-scenario/expected/current_state/day_07/customers.json

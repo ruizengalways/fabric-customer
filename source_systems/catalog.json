@@ -1,0 +1,11 @@
+{
+  "workload": "health-enterprise-reference",
+  "deterministic_seed": 20260907,
+  "representative_sources": [
+    {"source_system": "crm", "table": "customer", "delivery_pattern": "incremental_watermark", "primary_key": ["customer_id"], "truth_model": "current_and_history"},
+    {"source_system": "billing", "table": "invoice", "delivery_pattern": "full_snapshot", "primary_key": ["invoice_id"], "truth_model": "current_state"},
+    {"source_system": "health", "table": "patient_profile", "delivery_pattern": "incremental_changes", "primary_key": ["patient_id"], "truth_model": "current_and_history"},
+    {"source_system": "claims", "table": "claim_events", "delivery_pattern": "debezium_cdc", "primary_key": ["claim_id"], "truth_model": "source_events"}
+  ],
+  "scale_profile": {"full_snapshot": 50, "incremental_current": 20, "history_sensitive": 20, "cdc_debezium": 10}
+}

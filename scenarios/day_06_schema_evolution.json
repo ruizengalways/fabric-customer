@@ -1,0 +1,1 @@
+{"day":6,"slug":"schema_evolution","facts":["schema v2 adds preferred_language"],"expected":"current rows carry preferred_language"}

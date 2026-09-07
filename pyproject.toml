@@ -4,15 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fabric-customer-reference"
-version = "0.1.0"
-description = "Customer domain reference implementation for the enterprise Microsoft Fabric data framework."
+version = "0.2.0"
+description = "Framework-agnostic Microsoft Fabric customer/source-system simulator."
+readme = "README.md"
 requires-python = ">=3.11"
-dependencies = [
-  "fabric-data-framework==0.3.0",
-]
+dependencies = []
+
+[project.scripts]
+fabric-customer = "fabric_customer.simulator.cli:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=8,<10"]
+dev = ["pytest>=8,<10", "ruff>=0.9,<1"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
