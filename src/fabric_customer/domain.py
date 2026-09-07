@@ -5,9 +5,10 @@ Nothing in this module imports or assumes a downstream data-engineering framewor
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -28,7 +29,7 @@ def parse_crm_rows(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any], .
         row = dict(source)
         value = row.get("modified_at")
         if isinstance(value, str):
-            row["modified_at"] = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            row["modified_at"] = datetime.fromisoformat(value)
         parsed.append(row)
     return tuple(parsed)
 
