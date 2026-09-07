@@ -7,7 +7,6 @@ from pathlib import Path
 import shutil
 from typing import Any, Iterable
 
-from .models import SourceEvent
 from .scenarios import scenario_catalog
 
 
@@ -45,22 +44,45 @@ def materialize_scenario(
         if step.day > through_day:
             break
         label = step.day_label
-        _write_json(root / "source_systems/crm/snapshot" / label / "customers.json", list(step.snapshot))
-        _write_json(root / "source_systems/crm/incremental" / label / "customer_changes.json", list(step.incremental))
-        _write_jsonl(root / "source_systems/crm/cdc" / label / "customer_events.jsonl", (event.as_debezium() for event in step.cdc_events))
-        _write_json(root / "expected/current_state" / label / "customers.json", list(step.expected_current))
-        _write_json(root / "expected/history" / label / "customer_history.json", list(step.expected_history))
-        _write_jsonl(root / "expected/source_events" / label / "customer_events.jsonl", (event.as_dict() for event in step.cdc_events))
-        manifest.append({
-            "day": step.day,
-            "slug": step.slug,
-            "description": step.description,
-            "schema_version": step.schema_version,
-            "event_count": len(step.cdc_events),
-            "current_row_count": len(step.expected_current),
-        })
+        _write_json(
+            root / "source_systems/crm/snapshot" / label / "customers.json",
+            list(step.snapshot),
+        )
+        _write_json(
+            root / "source_systems/crm/incremental" / label / "customer_changes.json",
+            list(step.incremental),
+        )
+        _write_jsonl(
+            root / "source_systems/crm/cdc" / label / "customer_events.jsonl",
+            (event.as_debezium() for event in step.cdc_events),
+        )
+        _write_json(
+            root / "expected/current_state" / label / "customers.json",
+            list(step.expected_current),
+        )
+        _write_json(
+            root / "expected/history" / label / "customer_history.json",
+            list(step.expected_history),
+        )
+        _write_jsonl(
+            root / "expected/source_events" / label / "customer_events.jsonl",
+            (event.as_dict() for event in step.cdc_events),
+        )
+        manifest.append(
+            {
+                "day": step.day,
+                "slug": step.slug,
+                "description": step.description,
+                "schema_version": step.schema_version,
+                "event_count": len(step.cdc_events),
+                "current_row_count": len(step.expected_current),
+            }
+        )
 
-    _write_json(root / "scenario-manifest.json", {"seed": 20260907, "through_day": through_day, "steps": manifest})
+    _write_json(
+        root / "scenario-manifest.json",
+        {"seed": 20260907, "through_day": through_day, "steps": manifest},
+    )
     return root
 
 
@@ -71,5 +93,8 @@ def replay_day(output_root: str | Path, day: int) -> Path:
     step = steps[day]
     root = Path(output_root) / "replays" / step.day_label
     _write_json(root / "customer_changes.json", list(step.incremental))
-    _write_jsonl(root / "customer_events.jsonl", (event.as_debezium() for event in step.cdc_events))
+    _write_jsonl(
+        root / "customer_events.jsonl",
+        (event.as_debezium() for event in step.cdc_events),
+    )
     return root
